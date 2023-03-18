@@ -92,22 +92,25 @@ TrellisCallback setMode(keyEvent event) {
 void Box::begin() {
     DEBUG_PRINT("StartFunction");
 
-    for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH, false);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW, false);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
-        trellis.unregisterCallback(i);
-        trellis.registerCallback(i, setMode);
+    if(box.neotrellis_started) {
+        DEBUG_PRINT("Initializing NeoTrellis");
+        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH, false);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW, false);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
+            trellis.unregisterCallback(i);
+            trellis.registerCallback(i, setMode);
+        }
+
+        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++) {
+            if(i<BOX_MODE_COUNT) trellis.pixels.setPixelColor(i,COLOR_BLUE);
+            else                 trellis.pixels.setPixelColor(i,COLOR_BLACK);
+        }
+        trellis.pixels.show();
     }
 
-    for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++) {
-        if(i<BOX_MODE_COUNT) trellis.pixels.setPixelColor(i,COLOR_BLUE);
-        else                 trellis.pixels.setPixelColor(i,COLOR_BLACK);
-    }
-    trellis.pixels.show();
-
-    setVolume(0);
+    if(box.vs1053_started) setVolume(0);
 
 }
 
@@ -161,7 +164,10 @@ boolean Box::readRFID() {
     boolean success;
     uint8_t uidLength;
     
-    if(millis() - rfidLastRead < RFID_READ_INTERVAL)  return false;
+    if(millis() - rfidLastRead < RFID_READ_INTERVAL)  {
+        DEBUG_PRINT("Last RFDI read was to close, ignoring")    
+        return false;
+    }
 
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &rfidUid[0], &uidLength);
     if (success) {

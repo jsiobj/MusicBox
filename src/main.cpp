@@ -36,9 +36,11 @@
 #include <Adafruit_VS1053.h>
 #include <SD.h>
 
-#include <PN532_SPI.h>
+//#include <PN532_SPI.h>
+//#include <PN532_I2C.h>
+#include <PN532_HSU.h>
 #include <PN532.h>
-
+#include <NfcAdapter.h>
 
 #include "debug.h"
 #include "box.h"
@@ -57,8 +59,11 @@
 
 Adafruit_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
-PN532_SPI pn532spi(SPI, PN532_CS);
-PN532 nfc(pn532spi);
+//PN532_SPI pn532spi(SPI, PN532_CS);
+//PN532 nfc(pn532spi);
+
+PN532_HSU pn532(Serial1);
+PN532 nfc(pn532);
 
 Box box;
 Test test;
@@ -104,55 +109,58 @@ void setup() {
     while(!Serial);
     DEBUG_PRINT("StartFunction");
 
+    Serial1.begin(115200);
+
     // Starting SD Reader
     if (!SD.begin(VS_SHIELD_SDCS)) {
         DEBUG_PRINT("SD failed or not present");
     }
     else {
-        DEBUG_PRINT("SD Card started")
+        DEBUG_PRINT("SD Card started");
+        box.sdreader_started = true;
     }
 
     // Starting VS1053 player
     if (!vs1053FilePlayer.begin()) { 
         DEBUG_PRINT("Could not start VS1053");
-        while (1) delay(1);
     }
     else {
         DEBUG_PRINT("VS1053 started");
-    }
-
-    // Starting Trellis
-    if (!trellis.begin()) {
-        DEBUG_PRINT("Could not start NeoPixel Trellis");
-        while(1) delay(1);
-    } else {
-        DEBUG_PRINT("NeoPixel Trellis started");
+        box.vs1053_started = true;
     }
 
     // Starting RFID Reader
     nfc.begin();
     uint32_t versiondata = nfc.getFirmwareVersion();
     if (! versiondata) {
-        Serial.print("Could not start PN532 board");
+        DEBUG_PRINT("Could not start PN532 board");
         //while (1) delay(1); // halt
     }
     else {
         DEBUG_PRINTF("PN5-%x version %x", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
         //attachInterrupt(digitalPinToInterrupt(PN532IRQPIN), cardreading, FALLING);
-        //nfc.setPassiveActivationRetries(0x05);
+        //nfc.setPassiveActivationRetries(0x02);
         nfc.SAMConfig(); // configure board to read RFID tags
+        box.rfid_started = true;
     }
 
-    // First, check if test mode was requested (ie a key is pressed at startup)
-    // for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-    //     trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH);
-    //     trellis.registerCallback(i, setTestMode);
-    // }
-    // trellis.read();
+    // Starting Trellis
+    if (!trellis.begin()) {
+        DEBUG_PRINT("Could not start NeoPixel Trellis");
+    } else {
+        DEBUG_PRINT("NeoPixel Trellis started");
+        box.neotrellis_started = true;
+        // First, check if test mode was requested (ie a key is pressed at startup)
+        // If no key was pressed before reaching here
+        // We'll go on in "normal" mode
+        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH);
+            trellis.registerCallback(i, setTestMode);
+        }
+        trellis.read();
+    }
 
     box.boxMode = BOX_MODE_TEST;
-    // If no key was pressed before reaching here
-    // We'll go on in "normal" mode
 
     // Init box object
     box.begin();

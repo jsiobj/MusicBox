@@ -59,7 +59,7 @@
 #define PLAYER_NOSD 1
 #define PLAYER_ERR  2
 
-#define RFID_READ_INTERVAL 100
+#define RFID_READ_INTERVAL 1000
 
 // See https://www.w3schools.com/colors/colors_picker.asp
 #define COLOR_RED    0xFF0000
@@ -85,6 +85,11 @@ class Box {
         uint8_t volume;
         uint8_t rfidUid[7];
         long rfidLastRead = 0;
+
+        bool vs1053_started = false;
+        bool neotrellis_started = false;
+        bool sdreader_started = false;
+        bool rfid_started = false;
 
         void begin();          // No constructor but a begin()
         void selectMode();     // 

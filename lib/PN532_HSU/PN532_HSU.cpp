@@ -18,9 +18,9 @@ void PN532_HSU::wakeup()
 {
     _serial->write(0x55);
     _serial->write(0x55);
-    _serial->write(0);
-    _serial->write(0);
-    _serial->write(0);
+    _serial->write(uint8_t(0x00));
+    _serial->write(uint8_t(0x00));
+    _serial->write(uint8_t(0x00));
 
     /** dump serial buffer */
     if(_serial->available()){
@@ -47,8 +47,8 @@ int8_t PN532_HSU::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
 
     command = header[0];
     
-    _serial->write(PN532_PREAMBLE);
-    _serial->write(PN532_STARTCODE1);
+    _serial->write((byte)PN532_PREAMBLE);
+    _serial->write((byte)PN532_STARTCODE1);
     _serial->write(PN532_STARTCODE2);
     
     uint8_t length = hlen + blen + 1;   // length of data field: TFI + DATA
@@ -76,7 +76,7 @@ int8_t PN532_HSU::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
     
     uint8_t checksum = ~sum + 1;            // checksum of TFI + DATA
     _serial->write(checksum);
-    _serial->write(PN532_POSTAMBLE);
+    _serial->write(uint8_t(PN532_POSTAMBLE));
 
     return readAckFrame();
 }

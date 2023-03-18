@@ -7,7 +7,7 @@
 #include <PN532_SPI.h>
 #include <PN532.h>
 
-#include "box.h"
+    #include "box.h"
 #include "test.h"
 
 extern Box box;
@@ -68,30 +68,50 @@ void Test::begin() {
 
     DEBUG_PRINT("StartFunction");
 
-    for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH,false);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW,false);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
-        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING);
-        trellis.registerCallback(i, setColor);
-    }
+    if(box.neotrellis_started) {
+
+        DEBUG_PRINT("NeoTrellis : Started")
+        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH,false);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW,false);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
+            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING);
+            trellis.registerCallback(i, setColor);
+        }
+        
+        for (uint16_t i=0; i<trellis.pixels.numPixels(); i++) {
+            trellis.pixels.setPixelColor(i, 240, 20, 20);
+            trellis.pixels.show();
+            delay(50);
+        }
     
-    for (uint16_t i=0; i<trellis.pixels.numPixels(); i++) {
-        trellis.pixels.setPixelColor(i, 240, 20, 20);
+        for (uint16_t i=0; i<trellis.pixels.numPixels(); i++) {
+            trellis.pixels.setPixelColor(i, 0x000000);
+            trellis.pixels.show();
+            delay(50);
+        }
+
         trellis.pixels.show();
-        delay(50);
     }
-  
-    for (uint16_t i=0; i<trellis.pixels.numPixels(); i++) {
-        trellis.pixels.setPixelColor(i, 0x000000);
-        trellis.pixels.show();
-        delay(50);
+    else {
+        DEBUG_PRINT("NeoTrellis : Not Started");
     }
 
-    trellis.pixels.show();
+    if(box.sdreader_started) {
+        DEBUG_PRINT("SD         : Started");
+        //File root = SD.open("/");
+        //printDirectory(root,0);
+    }
+    else {
+        DEBUG_PRINT("SD         : Not Started");
+    }
 
-    File root = SD.open("/MUSIC1");
-    printDirectory(root,0);
+    if(box.rfid_started) {
+        DEBUG_PRINT("RFID         : Started");
+    }
+    else {
+        DEBUG_PRINT("RFID         : Not Started");
+    }
 
     DEBUG_PRINT("ExitFunction");
 }
@@ -104,8 +124,8 @@ void Test::loop() {
     // Looping forever... until reset !
     while(1) {
         delay(100);
-        trellis.read();
-        box.readRFID();
+        if(box.neotrellis_started) trellis.read();
+        if(box.rfid_started) box.readRFID();
     }
     
 }
