@@ -31,20 +31,17 @@
 */
 #define DEBUG
 
+//#include "I2C_Multi.h"
+
 #include <Arduino.h>
 #include <Adafruit_NeoTrellis.h>
 #include <Adafruit_VS1053.h>
 #include <SD.h>
-
-//#include <PN532_SPI.h>
-//#include <PN532_I2C.h>
-#include <PN532_HSU.h>
-#include <PN532.h>
-#include <NfcAdapter.h>
+#include <Adafruit_PN532.h>
 
 #include "debug.h"
 #include "box.h"
-#include "test.h"
+#include "diag.h"
 #include "player.h"
 
 // VS1053 shield pins
@@ -54,19 +51,12 @@
 #define VS_SHIELD_DREQ    9      // VS1053 Data request (int pin)
 #define VS_SHIELD_RESET   11
 
-#define PN532_CS          12
-//#define PN532_IRQ         13
-
 Adafruit_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
-//PN532_SPI pn532spi(SPI, PN532_CS);
-//PN532 nfc(pn532spi);
-
-PN532_HSU pn532(Serial1);
-PN532 nfc(pn532);
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 Box box;
-Test test;
+Diag diag;
 MusicPlayer musicPlayer;
 
 //=================================================================================
@@ -89,7 +79,7 @@ TrellisCallback setTestMode(keyEvent event) {
                 delay(500);
             }
 
-            box.boxMode = BOX_MODE_TEST;
+            box.boxMode = BOX_MODE_DIAG;
             DEBUG_PRINTF("Key %d pressed",event.bit.NUM);
             DEBUG_PRINT("Entering test mode")
             break;
@@ -109,7 +99,21 @@ void setup() {
     while(!Serial);
     DEBUG_PRINT("StartFunction");
 
-    Serial1.begin(115200);
+    // Scanning for I2C devices
+    // I2C addresses :
+    // PN532      : 0x24
+    // NeoTrellis : 0x2E
+    // MAX9744    : 0x4B
+    DEBUG_PRINT("Scanning I2C...");
+    Wire.begin();
+    for (uint8_t addr = 0; addr<=127; addr++) {
+        //Serial.print("Trying I2C 0x");  Serial.println(addr,HEX);
+        Wire.beginTransmission(addr);
+        if (!Wire.endTransmission()) {
+            DEBUG_PRINTF("Found I2C %x",addr);
+        }
+    }
+    DEBUG_PRINT("Scanning done");
 
     // Starting SD Reader
     if (!SD.begin(VS_SHIELD_SDCS)) {
@@ -129,21 +133,6 @@ void setup() {
         box.vs1053_started = true;
     }
 
-    // Starting RFID Reader
-    nfc.begin();
-    uint32_t versiondata = nfc.getFirmwareVersion();
-    if (! versiondata) {
-        DEBUG_PRINT("Could not start PN532 board");
-        //while (1) delay(1); // halt
-    }
-    else {
-        DEBUG_PRINTF("PN5-%x version %x", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
-        //attachInterrupt(digitalPinToInterrupt(PN532IRQPIN), cardreading, FALLING);
-        //nfc.setPassiveActivationRetries(0x02);
-        nfc.SAMConfig(); // configure board to read RFID tags
-        box.rfid_started = true;
-    }
-
     // Starting Trellis
     if (!trellis.begin()) {
         DEBUG_PRINT("Could not start NeoPixel Trellis");
@@ -160,53 +149,66 @@ void setup() {
         trellis.read();
     }
 
-    box.boxMode = BOX_MODE_TEST;
+    if (! box.setVolume(box.volume)) {
+        Serial.println("Failed to set volume, MAX9744 not found!");
+    }
+    else {
+        DEBUG_PRINT("MAX9744 Amplifier started");
+        box.max9744_started = true;
+    }
+
+    // Starting RFID Reader
+    // nfc.begin();
+    // uint32_t versiondata = nfc.getFirmwareVersion();
+    // if (! versiondata) {
+    //     DEBUG_PRINT("Could not start PN532 board");
+    // }
+    // else {
+    //     //attachInterrupt(digitalPinToInterrupt(PN532_IRQ), cardreading, FALLING);
+    //     DEBUG_PRINTF("PN5-%lx version %lx", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
+    //     //nfc.SAMConfig();
+    //     nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+    //     box.rfid_started = true;
+    // }
+
+    // For testing purpose
+    // box.boxMode = BOX_MODE_DIAG;
 
     // Init box object
     box.begin();
+    box.selectMode();
 }
 
 //=================================================================================
 // MAIN LOOP
 //=================================================================================
 void loop() {
-    DEBUG_PRINT("StartFunction");
 
-    // if no mode selected
-    if(box.boxMode == BOX_MODE_UNDEF) {
-        box.selectMode();
-    }
-
-    // Once mode is selected, starting the right loop, depending on mode
+    // Once mode is selected, Starting the right loop
     switch (box.boxMode) {
-
-        case BOX_MODE_TEST:
-            DEBUG_PRINT("Test mode");
-            test.begin();
-            test.loop();
+       case BOX_MODE_DIAG:
+            diag.begin();
+            diag.loop();
             break;    
 
         case BOX_MODE_PLAYER:
-            DEBUG_PRINT("Player mode");
             musicPlayer.begin();
             musicPlayer.loop();
             break;    
 
         case BOX_MODE_PIANO:
-            DEBUG_PRINT("Piano mode");
-            DEBUG_PRINT("Not implemenented yet...");
-            box.boxMode = BOX_MODE_UNDEF;
             break;    
 
         case BOX_MODE_GAME:
-            DEBUG_PRINT("Player mode");
-            DEBUG_PRINT("Not implemenented yet...");
-            box.boxMode = BOX_MODE_UNDEF;
             break;    
 
         default:
             DEBUG_PRINT("Ooops... unknown mode ! Restarting.");
             box.boxMode = BOX_MODE_UNDEF;
+             box.selectMode();
             break;
     }
+
+
+
 }

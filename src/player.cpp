@@ -45,209 +45,96 @@ extern MusicPlayer musicPlayer;
 extern Adafruit_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
 
-#define BUTTON_MENU_COUNT 6
-#define button2key(button) button - BUTTON_MENU_COUNT
-#define key2button(key) key + BUTTON_MENU_COUNT
+uint8_t mapButton2Track[] = { 255, 255, 255, 255,
+                                0,   1,   2,   3,
+                                4,   5,   6,   7,
+                              255,   8,   9, 255
+                            }; 
+
+
+uint8_t button2track(uint8_t button) {
+    return mapButton2Track[button];
+}
+
+uint8_t track2button(uint8_t track) {
+    for(int i=0;i<NEO_TRELLIS_NUM_KEYS;i++) 
+        if(mapButton2Track[i]==track) 
+            return i;
+
+    return 255;
+}
 
 //=========================================================================
 //=== CALLBACKS
 //=========================================================================
 
-
-//-------------------------------------------------------------------------
-// 
 //-------------------------------------------------------------------------
 TrellisCallback increaseVol(keyEvent event) {
     DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
     box.increaseVolume();
     return 0;
 }
 
 //-------------------------------------------------------------------------
-// 
-//-------------------------------------------------------------------------
 TrellisCallback decreaseVol(keyEvent event) {
-    DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
     box.decreaseVolume();
     return 0;
 }
 
 //-------------------------------------------------------------------------
-// 
-//-------------------------------------------------------------------------
 TrellisCallback onButtonBackPressed(keyEvent event) {
-    DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
-    musicPlayer.autoPlayNext = false;
-    musicPlayer.playScope = SCOPE_NONE;
-
-    if(musicPlayer.currentTrackId != NO_KEY) {
-        vs1053FilePlayer.stopPlaying();
-        musicPlayer.currentTrackId = NO_KEY;
-        musicPlayer.displayTracks();
-        DEBUG_PRINT("ExitFunction, unset trackid");
-        return 0;
-    }
-
-    if(musicPlayer.currentAlbumId != NO_KEY) {
-        musicPlayer.currentAlbumId = NO_KEY;
-        musicPlayer.displayAlbums();
-        DEBUG_PRINT("ExitFunction,unset album id");
-        return 0;
-    }
-
-    if(musicPlayer.currentLibraryId != NO_KEY) {
-        musicPlayer.currentLibraryId = NO_KEY;
-        musicPlayer.displayLibraries();
-        DEBUG_PRINT("ExitFunction,unset library id");
-        return 0;
-    }
-
+    musicPlayer.navBack();
     return 0;
-    DEBUG_PRINT("ExitFunction,can't go back more !");
 }
 
-//-------------------------------------------------------------------------
-// 
 //-------------------------------------------------------------------------
 TrellisCallback onButtonPlayPausePressed(keyEvent event) {
-    DEBUG_PRINTF("StartFunction,scope:%d",musicPlayer.playScope);
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
-    if(vs1053FilePlayer.stopped() || vs1053FilePlayer.paused()) musicPlayer.autoPlayNext = true;
-    else musicPlayer.autoPlayNext = false;
-
-    if(musicPlayer.playScope == SCOPE_NONE) {
-        if(musicPlayer.currentTrackId != NO_KEY || musicPlayer.currentAlbumId != NO_KEY) musicPlayer.playScope = SCOPE_ALBUM;
-        else if(musicPlayer.currentLibraryId != NO_KEY)                                  musicPlayer.playScope = SCOPE_LIBRARY;
-        else                                                                             musicPlayer.playScope = SCOPE_ALL;
-    }
-
-    // A track is already selected, play it or unpause it
-    if( musicPlayer.currentTrackId != NO_KEY  ) {
-        if(vs1053FilePlayer.stopped()) musicPlayer.playTrack();   // Current track not playing (finished or never started)
-        if(vs1053FilePlayer.paused())  musicPlayer.unpauseTrack();
-        else                               musicPlayer.pauseTrack();
-    }
-    // No track is selected, playing the next track in scope
-    else {
-        musicPlayer.setNextTrack();
-        musicPlayer.playTrack();
-    }
-    
+    musicPlayer.playPause();
     return 0;
-    DEBUG_PRINTF("ExitFunction,scope:%d",musicPlayer.playScope);
 }
 
-//-------------------------------------------------------------------------
-// 
 //-------------------------------------------------------------------------
 TrellisCallback onButtonNextPressed(keyEvent event) {
-    DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
-    //vs1053FilePlayer.stopPlaying();
-    //if(musicPlayer.setPreviousTrack()) musicPlayer.playTrack();
+    musicPlayer.playNextTrack();
     return 0;
-
-    DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// 
 //-------------------------------------------------------------------------
 TrellisCallback onButtonPreviousPressed(keyEvent event) {
-    DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
-    vs1053FilePlayer.stopPlaying();
-    if(musicPlayer.setNextTrack()) musicPlayer.playTrack();
+    DEBUG_PRINT("playPreviousTrack not implemented (yet)");
     return 0;
-
-    return 0;
-    DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Actions when key is pressed
 //-------------------------------------------------------------------------
 TrellisCallback onTrackKeyPressed(keyEvent event) {
     DEBUG_PRINT("StartFunction");
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-
     if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
-
-    if(musicPlayer.currentTrackId == button2key(event.bit.NUM)) {
-
-        DEBUG_PRINT("Key pressed match current playing track : play/pause");
-        if(vs1053FilePlayer.stopped()) musicPlayer.playTrack(); // Current track not playing (finished)
-        if(vs1053FilePlayer.paused())  musicPlayer.unpauseTrack();
-        else                               musicPlayer.pauseTrack();
-    
-    }
-    else {
-
-        if(musicPlayer.currentTrackId != NO_KEY) {
-            if(button2key(event.bit.NUM)<musicPlayer.trackCount) {
-                vs1053FilePlayer.stopPlaying();
-                musicPlayer.currentTrackId = button2key(event.bit.NUM);
-                musicPlayer.playTrack();
-            }
-            DEBUG_PRINT("ExitFunction, track playing");  
-            return 0;
-        }
-
-        if(musicPlayer.currentAlbumId != NO_KEY) {
-            if(button2key(event.bit.NUM)<musicPlayer.trackCount) {
-                if( musicPlayer.currentTrackId != button2key(event.bit.NUM)) {
-                    musicPlayer.currentTrackId = button2key(event.bit.NUM);
-                    musicPlayer.playTrack();
-                }
-            }
-            DEBUG_PRINT("ExitFunction, track playing");  
-            return 0;
-        }
-
-        if(musicPlayer.currentLibraryId != NO_KEY) {
-            if(button2key(event.bit.NUM)<musicPlayer.albumCount) {
-                if(musicPlayer.currentAlbumId != button2key(event.bit.NUM)) {
-                    musicPlayer.currentAlbumId = button2key(event.bit.NUM);
-                    musicPlayer.loadTracks();
-                    musicPlayer.displayTracks();
-                }
-            }
-            DEBUG_PRINT("ExitFunction, library set");  
-            return 0;
-        }
- 
-        if(button2key(event.bit.NUM)<musicPlayer.libraryCount) {
-            musicPlayer.currentLibraryId = button2key(event.bit.NUM);
-            musicPlayer.loadAlbums();
-            musicPlayer.displayAlbums();
-        }
-
-    }
-    
+    musicPlayer.selectObject(button2track(event.bit.NUM));
     return 0;
-    DEBUG_PRINT("ExitFunction, library set");  
 }
+
+#ifdef DEBUG
+TrellisCallback onDumpKeyPressed(keyEvent event)  {
+    DEBUG_PRINT("StartFunction");
+    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+    if(event.bit.EDGE != SEESAW_KEYPAD_EDGE_RISING) return 0;
+    musicPlayer.dumpObject(true);
+    return 0;
+}
+#endif
 
 //=========================================================================
 //=== Methods
@@ -259,27 +146,35 @@ TrellisCallback onTrackKeyPressed(keyEvent event) {
 void MusicPlayer::begin() { 
     DEBUG_PRINT("StartFunction");
 
-    trellis.registerCallback(0, onButtonPreviousPressed);
-    trellis.registerCallback(1, onButtonPlayPausePressed);
-    trellis.registerCallback(2, onButtonNextPressed);
-    trellis.registerCallback(3, onButtonBackPressed);
-    trellis.registerCallback(4, increaseVol);
-    trellis.registerCallback(5, decreaseVol);
-
-    for(int i=BUTTON_MENU_COUNT; i<NEO_TRELLIS_NUM_KEYS; i++){
+    for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
         trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
         // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING,false);
         // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW,false);
         // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH,false);
         trellis.registerCallback(i, onTrackKeyPressed);
+        trellis.pixels.setPixelColor(i,0xFFFFFF);
     }
 
-    trellis.pixels.setPixelColor(0,COLOR_GREEN);
-    trellis.pixels.setPixelColor(1,COLOR_GREEN);
-    trellis.pixels.setPixelColor(2,COLOR_GREEN);
-    trellis.pixels.setPixelColor(3,COLOR_GREEN);
-    trellis.pixels.setPixelColor(5,COLOR_RED);
-    trellis.pixels.setPixelColor(4,COLOR_RED);
+    trellis.registerCallback(BTN_ID_BACK, onButtonBackPressed);
+    trellis.registerCallback(BTN_ID_PLAY_PAUSE, onButtonPlayPausePressed);
+    trellis.registerCallback(BTN_ID_NEXT, onButtonNextPressed);
+    trellis.registerCallback(BTN_ID_BACK, onButtonBackPressed);
+    trellis.registerCallback(BTN_ID_VOL_UP, increaseVol);
+    trellis.registerCallback(BTN_ID_VOL_DOWN, decreaseVol);
+
+    trellis.pixels.setPixelColor(BTN_ID_BACK,COLOR_ORANGE);
+    trellis.pixels.setPixelColor(BTN_ID_PLAY_PAUSE,COLOR_RED);
+    trellis.pixels.setPixelColor(BTN_ID_NEXT,COLOR_BLUE);
+    trellis.pixels.setPixelColor(BTN_ID_NEXT_PAGE,COLOR_PURPLE);
+    trellis.pixels.setPixelColor(BTN_ID_VOL_UP,COLOR_BLUE);
+    trellis.pixels.setPixelColor(BTN_ID_VOL_DOWN,COLOR_BLUE);
+
+#ifdef DEBUG
+    trellis.pixels.setPixelColor(BTN_ID_DUMP, COLOR_RED);
+    trellis.registerCallback(BTN_ID_DUMP, onDumpKeyPressed);
+    mapButton2Track[BTN_ID_DUMP] = 255;
+#endif
+
     trellis.pixels.show();
 
     //strcpy(rootPath, path);
@@ -294,9 +189,9 @@ void MusicPlayer::begin() {
 void MusicPlayer::loop() {
 
     DEBUG_PRINT("StartFunction");
-
-
+    
     while(true) {
+        trellis.read();
 
         if(vs1053FilePlayer.playingMusic) {
             vs1053FilePlayer.feedBuffer();
@@ -307,25 +202,11 @@ void MusicPlayer::loop() {
                 else autoPlayNext = false;
             }
         }
-
-
-        // Checking Keypad
-        trellis.read();
-
-        // // Checking button
-        // readButton();
-
-        // // Checking encoder
-        // int increment = box.encoder->getIncrement();
-        // if (increment != 0) {
-        //     DEBUG_PRINTF("Increment",increment);
-        //     setVolume(increment);
-        // }
     }
 }
 
 //-------------------------------------------------------------------------
-// Show all libraries on keypad
+// Load libraries from SD
 //-------------------------------------------------------------------------
 void MusicPlayer::loadLibraries() {
 
@@ -334,14 +215,16 @@ void MusicPlayer::loadLibraries() {
     DEBUG_PRINT("ExitFunction");
 }
 
+//-------------------------------------------------------------------------
+// Show libraries on keypad
+//-------------------------------------------------------------------------
 void MusicPlayer::displayLibraries() {
 
     DEBUG_PRINT("StartFunction");
 
-    trellis.pixels.clear();
     for(byte libraryRef = 0; libraryRef < libraryCount; libraryRef++) {
         DEBUG_PRINTF("Enabling library %d",libraryRef);
-        trellis.pixels.setPixelColor(key2button(libraryRef),COLOR_BLUE);
+        trellis.pixels.setPixelColor(track2button(libraryRef),COLOR_GREEN);
     }
     trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
@@ -360,10 +243,9 @@ void MusicPlayer::displayAlbums() {
 
     DEBUG_PRINT("StartFunction");
 
-    trellis.pixels.clear();
     for(byte albumRef = 0; albumRef < albumCount; albumRef++) {
         DEBUG_PRINTF("Enabling album %d",albumRef);
-        trellis.pixels.setPixelColor(key2button(albumRef),COLOR_GREEN);
+        trellis.pixels.setPixelColor(track2button(albumRef),COLOR_GREEN);
     }
     trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
@@ -383,10 +265,9 @@ void MusicPlayer::displayTracks() {
 
     DEBUG_PRINT("StartFunction");
 
-    trellis.pixels.clear();
     for(byte trackRef = 0; trackRef < trackCount; trackRef++) {
         DEBUG_PRINTF("Enabling track %d",trackRef);
-        trellis.pixels.setPixelColor(key2button(trackRef),COLOR_ORANGE);
+        trellis.pixels.setPixelColor(track2button(trackRef),COLOR_ORANGE);
     }
     trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
@@ -403,7 +284,7 @@ void MusicPlayer::playTrack() {
         vs1053FilePlayer.stopPlaying();
     }
     vs1053FilePlayer.startPlayingFile(tracks[currentTrackId]);
-    trellis.pixels.setPixelColor(key2button(currentTrackId),COLOR_PURPLE);
+    trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_PURPLE);
     trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
 }
@@ -423,14 +304,133 @@ void MusicPlayer::pauseTrack() {
 void MusicPlayer::unpauseTrack() {
     DEBUG_PRINT("StartFunction");
     vs1053FilePlayer.pausePlaying(false);
-    trellis.pixels.setPixelColor(key2button(currentTrackId),COLOR_PURPLE);
+    trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_PURPLE);
     trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
 }
 
+//-------------------------------------------------------------------------
+// Play / Pause
+//-------------------------------------------------------------------------
+void MusicPlayer::playPause() {
+
+    DEBUG_PRINT("StartFunction");  
+    if(vs1053FilePlayer.stopped() || vs1053FilePlayer.paused()) autoPlayNext = true;
+    else autoPlayNext = false;
+
+    if(playScope == SCOPE_NONE) {
+        if(currentTrackId != NO_KEY || currentAlbumId != NO_KEY) playScope = SCOPE_ALBUM;
+        else if(currentLibraryId != NO_KEY)                      playScope = SCOPE_LIBRARY;
+        else                                                     playScope = SCOPE_ALL;
+    }
+    // A track is already selected, play it or unpause it
+    if( currentTrackId != NO_KEY  ) {
+        if(vs1053FilePlayer.stopped()) playTrack();   // Current track not playing (finished or never started)
+        if(vs1053FilePlayer.paused())  unpauseTrack();
+        else                           pauseTrack();
+    }
+    // No track is selected, playing the next track in scope
+    else {
+        setNextTrack();
+        playTrack();
+    }
+    DEBUG_PRINTF("ExitFunction,scope:%d",playScope);
+}
+
+void MusicPlayer::selectObject(uint8_t id) {
+
+    // Key pressed match current playing track
+    if(currentTrackId == id) {
+
+        DEBUG_PRINT("Key pressed match current playing track : play/pause");
+        if(vs1053FilePlayer.stopped()) playTrack(); // Current track not playing (finished)
+        if(vs1053FilePlayer.paused())  unpauseTrack();
+        else                           pauseTrack();
+    
+    }
+    else {
+
+        // There is another track playing, stopping and playing the new one
+        if(currentTrackId != NO_KEY) {
+            if(id < trackCount) {
+                vs1053FilePlayer.stopPlaying();
+                currentTrackId = id;
+                playTrack();
+            }
+            DEBUG_PRINT("ExitFunction, old track stopped, new track playing");  
+        }
+
+        // No track is active, but album is, playing selected track
+        if(currentAlbumId != NO_KEY) {
+            if(id<trackCount) {
+                if( currentTrackId != id) {
+                    currentTrackId = id;
+                    playTrack();
+                }
+            }
+            DEBUG_PRINT("ExitFunction, selected track playing");  
+        }
+
+        // No album is active, but library is, loading selected album
+        if(currentLibraryId != NO_KEY) {
+            if(id < albumCount) {
+                if(currentAlbumId != id) {
+                    currentAlbumId = id;
+                    loadTracks();
+                    displayTracks();
+                }
+            }
+            DEBUG_PRINT("ExitFunction, library set");  
+        }
+ 
+        // No library active, loading selected library
+        if(id < libraryCount) {
+            currentLibraryId = id;
+            loadAlbums();
+            displayAlbums();
+            DEBUG_PRINT("ExitFunction, library set");  
+        }
+    }
+}
+
+void MusicPlayer::navBack() {
+
+    autoPlayNext = false;
+    playScope = SCOPE_NONE;
+
+    if(currentTrackId != NO_KEY) {
+        vs1053FilePlayer.stopPlaying();
+        currentTrackId = NO_KEY;
+        displayTracks();
+        DEBUG_PRINT("ExitFunction, unset trackid");
+    }
+
+    if(currentAlbumId != NO_KEY) {
+        currentAlbumId = NO_KEY;
+        displayAlbums();
+        DEBUG_PRINT("ExitFunction,unset album id");
+    }
+
+    if(currentLibraryId != NO_KEY) {
+        currentLibraryId = NO_KEY;
+        displayLibraries();
+        DEBUG_PRINT("ExitFunction,unset library id");
+    }
+
+    DEBUG_PRINT("ExitFunction,can't go back more !");
+}
 
 //-------------------------------------------------------------------------
-// Next
+// Playing next track
+//-------------------------------------------------------------------------
+void MusicPlayer::playNextTrack() {
+    DEBUG_PRINT("StartFunction");
+    vs1053FilePlayer.stopPlaying();
+    if(setNextTrack()) playTrack();
+}
+
+//-------------------------------------------------------------------------
+// Setting next track
 //-------------------------------------------------------------------------
 bool MusicPlayer::setNextTrack() {
     
@@ -508,38 +508,38 @@ bool MusicPlayer::setNextTrack() {
 //-------------------------------------------------------------------------
 // Setting volume
 //-------------------------------------------------------------------------
-void MusicPlayer::setVolume(byte volumeDiff) {
-    DEBUG_PRINTF("StartFunction,volumeDiff:%d",volumeDiff);
+// void MusicPlayer::setVolume(byte volumeDiff) {
+//     DEBUG_PRINTF("StartFunction,volumeDiff:%d",volumeDiff);
 
-    // byte redValue,greenValue,blueValue;
-    byte tempVol;
+//     // byte redValue,greenValue,blueValue;
+//     byte tempVol;
 
-    tempVol = volume - volumeDiff;
-    if(tempVol<MAX_VOLUME)      volume=MAX_VOLUME; 
-    else if(tempVol>MIN_VOLUME) volume=MIN_VOLUME;
-    else                        volume=tempVol;
+//     tempVol = volume - volumeDiff;
+//     if(tempVol<MAX_VOLUME)      volume=MAX_VOLUME; 
+//     else if(tempVol>MIN_VOLUME) volume=MIN_VOLUME;
+//     else                        volume=tempVol;
 
-    vs1053FilePlayer.setVolume(volume,volume);     // Left and right channel volume (lower number mean louder)
-    DEBUG_PRINTF("Volume set to %d",volume);
+//     vs1053FilePlayer.setVolume(volume,volume);     // Left and right channel volume (lower number mean louder)
+//     DEBUG_PRINTF("Volume set to %d",volume);
 
-    // if(volume<MID_VOLUME) {
-    //     redValue=0;
-    //     greenValue=((MID_VOLUME-volume)*255.0)/(MID_VOLUME-MAX_VOLUME);
-    //     blueValue=((MID_VOLUME-volume)*255.0)/(MID_VOLUME-MAX_VOLUME);
-    // }
-    // else {
-    //     blueValue=0;
-    //     redValue=(255-((MIN_VOLUME-volume)*255.0)/(MIN_VOLUME-MID_VOLUME));
-    //     greenValue=(255-((MIN_VOLUME-volume)*255.0)/(MIN_VOLUME-MID_VOLUME));
-    // }
+//     // if(volume<MID_VOLUME) {
+//     //     redValue=0;
+//     //     greenValue=((MID_VOLUME-volume)*255.0)/(MID_VOLUME-MAX_VOLUME);
+//     //     blueValue=((MID_VOLUME-volume)*255.0)/(MID_VOLUME-MAX_VOLUME);
+//     // }
+//     // else {
+//     //     blueValue=0;
+//     //     redValue=(255-((MIN_VOLUME-volume)*255.0)/(MIN_VOLUME-MID_VOLUME));
+//     //     greenValue=(255-((MIN_VOLUME-volume)*255.0)/(MIN_VOLUME-MID_VOLUME));
+//     // }
 
-    // DEBUG_PRINTF3("RGB",redValue,greenValue,blueValue);
-    // analogWrite(ENCODER_RED,redValue);
-    // analogWrite(ENCODER_GREEN,greenValue);
-    // analogWrite(ENCODER_BLUE,blueValue);
+//     // DEBUG_PRINTF3("RGB",redValue,greenValue,blueValue);
+//     // analogWrite(ENCODER_RED,redValue);
+//     // analogWrite(ENCODER_GREEN,greenValue);
+//     // analogWrite(ENCODER_BLUE,blueValue);
 
-    DEBUG_PRINT("ExitFunction");
-}
+//     DEBUG_PRINT("ExitFunction");
+// }
 
 //-------------------------------------------------------------------------
 // Read SD Card to build music library

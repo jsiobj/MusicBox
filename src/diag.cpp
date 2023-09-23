@@ -2,19 +2,17 @@
 #include "debug.h"
 
 #include <SD.h>
-#include "Adafruit_NeoTrellis.h"
+#include <Adafruit_NeoTrellis.h>
+#include <Adafruit_PN532.h>
 
-#include <PN532_SPI.h>
-#include <PN532.h>
-
-    #include "box.h"
-#include "test.h"
+#include "box.h"
+#include "diag.h"
 
 extern Box box;
 extern Adafruit_NeoTrellis trellis;
-extern PN532 nfc;
+extern Adafruit_PN532 nfc;
 
-void printDirectory(File dir, int numTabs) {
+void printDirectory(File dir, int numTabs, int max_depth, int current_depth = 0) {
     
     DEBUG_PRINTF("Base directory: %s", dir.name());
 
@@ -33,7 +31,9 @@ void printDirectory(File dir, int numTabs) {
         Serial.print(entry.name());
         if (entry.isDirectory()) {
             Serial.println("/");
-            printDirectory(entry, numTabs+1);
+            if (current_depth <= max_depth) {
+                printDirectory(entry, numTabs+1, max_depth, current_depth+1);
+            }
         } else {
             // files have sizes, directories do not
             Serial.print("\t\t");
@@ -42,12 +42,41 @@ void printDirectory(File dir, int numTabs) {
 
         entry.close();
     }
+    dir.rewindDirectory();
 }
 
 TrellisCallback setColor(keyEvent event) {
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
     switch (event.bit.EDGE) {
         case SEESAW_KEYPAD_EDGE_RISING:
+            if(event.bit.NUM == 0)  {
+                trellis.pixels.setPixelColor(event.bit.NUM,255,0,0);
+                // Scanning for I2C devices
+                // I2C addresses :
+                // PN532      : 0x24
+                // NeoTrellis : 0x2E
+                // MAX9744    : 0x4B
+                DEBUG_PRINT("Scanning I2C...");
+                for (uint8_t addr = 0; addr<=127; addr++) {
+                    //Serial.print("Trying I2C 0x");  Serial.println(addr,HEX);
+                    Wire.beginTransmission(addr);
+                    if (!Wire.endTransmission()) {
+                        DEBUG_PRINTF("Found I2C %x",addr);
+                    }
+                }
+                DEBUG_PRINT("Scanning done");
+                break;
+            }
+
+            if(event.bit.NUM == 1) {
+                if(box.sdreader_started) {
+                    File root = SD.open("/");
+                    printDirectory(root,0,0);
+                }
+                else {
+                    Serial.println("SD reader disabled");
+                }
+            }
             trellis.pixels.setPixelColor(event.bit.NUM,255,255,0);
             DEBUG_PRINTF("Key %d pressed",event.bit.NUM);
             break;
@@ -64,13 +93,17 @@ TrellisCallback setColor(keyEvent event) {
     return 0;
 }
 
-void Test::begin() {
+void Diag::begin() {
 
     DEBUG_PRINT("StartFunction");
 
-    if(box.neotrellis_started) {
+    DEBUG_PRINTF("VS4053     : %s",box.vs1053_started ? "Started" : "No started");
+    DEBUG_PRINTF("SD         : %s",box.sdreader_started ? "Started" : "No started");
+    DEBUG_PRINTF("NeoTrellis : %s",box.neotrellis_started ? "Started" : "No started");
+    DEBUG_PRINTF("NFC        : %s",box.rfid_started ? "Started" : "No started");
+    DEBUG_PRINTF("MAX9744    : %s",box.max9744_started ? "Started" : "No started");
 
-        DEBUG_PRINT("NeoTrellis : Started")
+    if(box.neotrellis_started) {
         for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
             trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH,false);
             trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW,false);
@@ -93,39 +126,11 @@ void Test::begin() {
 
         trellis.pixels.show();
     }
-    else {
-        DEBUG_PRINT("NeoTrellis : Not Started");
-    }
-
-    if(box.sdreader_started) {
-        DEBUG_PRINT("SD         : Started");
-        //File root = SD.open("/");
-        //printDirectory(root,0);
-    }
-    else {
-        DEBUG_PRINT("SD         : Not Started");
-    }
-
-    if(box.rfid_started) {
-        DEBUG_PRINT("RFID         : Started");
-    }
-    else {
-        DEBUG_PRINT("RFID         : Not Started");
-    }
 
     DEBUG_PRINT("ExitFunction");
 }
 
-void Test::loop() {
-
-    DEBUG_PRINT("StartFunction");
-    DEBUG_PRINT("Checking keyboard and encoder, press keys to test or turn encoder to test...");
-
-    // Looping forever... until reset !
-    while(1) {
-        delay(100);
-        if(box.neotrellis_started) trellis.read();
-        if(box.rfid_started) box.readRFID();
-    }
-    
+// Main diag loop function
+void Diag::loop() {
+   
 }

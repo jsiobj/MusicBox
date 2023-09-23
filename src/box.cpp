@@ -37,13 +37,14 @@
 // #include <MMA8453_n0m1.h>
 #include <Adafruit_VS1053.h>
 #include <Adafruit_NeoTrellis.h>
-#include <PN532.h>
+#include <Adafruit_PN532.h>
 
 #include "box.h"
+
 extern Box box;
 extern Adafruit_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
-extern PN532 nfc;
+extern Adafruit_PN532 nfc;
 
 
 TrellisCallback setMode(keyEvent event) {
@@ -55,7 +56,7 @@ TrellisCallback setMode(keyEvent event) {
                 trellis.pixels.setPixelColor(event.bit.NUM,COLOR_GREEN);
                 trellis.pixels.show();
                 box.boxMode = event.bit.NUM;
-                DEBUG_PRINTF("Mode set to %d",event.bit.NUM);
+                DEBUG_PRINTF("Mode set to %d",box.boxMode);
             }
             else {
                 trellis.pixels.setPixelColor(event.bit.NUM,COLOR_RED);
@@ -87,7 +88,7 @@ TrellisCallback setMode(keyEvent event) {
 }
 
 //=================================================================================
-// Doing all configuration
+// Doing Box configuration
 //=================================================================================
 void Box::begin() {
     DEBUG_PRINT("StartFunction");
@@ -103,38 +104,53 @@ void Box::begin() {
             trellis.registerCallback(i, setMode);
         }
 
-        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++) {
-            if(i<BOX_MODE_COUNT) trellis.pixels.setPixelColor(i,COLOR_BLUE);
-            else                 trellis.pixels.setPixelColor(i,COLOR_BLACK);
+        for(int i=0; i<BOX_MODE_COUNT; i++) {
+            trellis.pixels.setPixelColor(i,COLOR_BLUE);
         }
         trellis.pixels.show();
     }
 
-    if(box.vs1053_started) setVolume(0);
-
 }
 
+//=================================================================================
+// Box loop
+//=================================================================================
+void Box::loop() {
+    if(box.neotrellis_started) trellis.read();
+    if(box.rfid_started)  checkNFC();
+}
+
+//=================================================================================
+// Selecting box mode
+//=================================================================================
 void Box::selectMode() {
-
     // Wait until key box mode is set (by pressing an allowed key)
-    while(boxMode == BOX_MODE_UNDEF) {
-        trellis.read();
+    if(BOX_MODE_COUNT == 1) {
+        boxMode = 0;
     }
-
-    return;
+    else {
+        while(boxMode == BOX_MODE_UNDEF) {
+            trellis.read();
+        }
+    }
 }
 
+//=================================================================================
+// Setting Box volume
+//=================================================================================
 bool Box::setVolume(int8_t v) {
     DEBUG_PRINTF("Setting volume to %d",v);
     
     Wire.beginTransmission(Max9744i2cAddr);
     Wire.write(v);
+    uint8_t rc = Wire.endTransmission();
     
-    if (Wire.endTransmission() == 0) {
+    if ( rc == 0) {
         volume = v;
         return true;
     }
     else {
+        DEBUG_PRINTF("Could not set volume, rc was : %d", rc)
         return false;
     }
 }
@@ -159,23 +175,77 @@ void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
     hexString[2*length] = '\0'; // Terminate the string with null character
 }
 
-boolean Box::readRFID() {
+// boolean Box::nfcReadId() {
     
-    boolean success;
-    uint8_t uidLength;
-    
-    if(millis() - rfidLastRead < RFID_READ_INTERVAL)  {
-        DEBUG_PRINT("Last RFDI read was to close, ignoring")    
-        return false;
-    }
+//     boolean success;
+//     uint8_t uidLength;
 
-    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &rfidUid[0], &uidLength);
+//     //DEBUG_PRINT("Reading tag...");
+    
+//     if(millis() - nfcLastRead < RFID_READ_INTERVAL)  {
+//         DEBUG_PRINT("Last RFDI read was to close, ignoring")    
+//         return false;
+//     }
+
+//     success = nfc.readDetectedPassiveTargetID(rfidUid, &uidLength);
+//     //success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A,rfidUid, &uidLength);
+//     if (success) {
+//         char uidStr[15];
+//         intArrayToHexString(rfidUid,uidLength,uidStr);
+//         DEBUG_PRINTF("Card detected, UID Length: %d bytes,  value: %s", uidLength, uidStr);
+//         nfc.inRelease();
+//         nfcLastRead = millis();
+//     }
+//     else {
+//         DEBUG_PRINTF("Failed to read card");
+//         nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
+//     }
+
+    
+//     return success;
+// }
+
+void Box::checkNFC() {
+
+    if (readerDisabled) {
+        if (millis() - nfcLastRead > DELAY_BETWEEN_CARDS) {
+            readerDisabled = false;
+            irqPrev = irqCurr = HIGH;
+            DEBUG_PRINT("Waiting for an ISO14443A Card ...");
+            nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+        }
+    } 
+    else {
+            irqCurr = digitalRead(PN532_IRQ);
+
+            // When the IRQ is pulled low - the reader has got something for us.
+            if (irqCurr == LOW && irqPrev == HIGH) {
+            DEBUG_PRINT("Got NFC IRQ");
+            readNFC();
+        }
+
+        irqPrev = irqCurr;
+    }    
+}
+
+void Box::readNFC() {
+    uint8_t success = false;
+    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+    uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+
+    // read the NFC tag's info
+    success = nfc.readDetectedPassiveTargetID(uid, &uidLength);
     if (success) {
         char uidStr[15];
-        intArrayToHexString(rfidUid,uidLength,uidStr);
+        intArrayToHexString(uid,uidLength,uidStr);
         DEBUG_PRINTF("Card detected, UID Length: %d bytes,  value: %s", uidLength, uidStr);
-        rfidLastRead = millis();
+        nfcLastRead = millis();
+    }
+    else {
+        DEBUG_PRINTF("Failed to read card");
+        nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
     }
 
-    return success;
+    // The reader will be enabled again after DELAY_BETWEEN_CARDS ms will pass.
+    readerDisabled = true;
 }

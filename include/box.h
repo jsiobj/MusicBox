@@ -3,8 +3,11 @@
 
 #include <Arduino.h>
 
-#define BOOT_MODE_PIN    47      // Boot mode / GPIO1 : if high => MIDI
-#define NO_KEY   255
+#define BOOT_MODE_PIN   47      // Boot mode / GPIO1 : if high => MIDI
+#define NO_KEY          255
+
+#define PN532_RESET     12
+#define PN532_IRQ       1
 
 // Main Buttons
 #define BTN_COUNT       4
@@ -41,11 +44,11 @@
 #define OFF 0x1
 
 // Box modes
-#define BOX_MODE_COUNT 3
+#define BOX_MODE_COUNT 1
 
 #define BOX_MODE_DEFAULT -1
 #define BOX_MODE_UNDEF   -1
-#define BOX_MODE_TEST    -2
+#define BOX_MODE_DIAG    -2
 #define BOX_MODE_PLAYER   0
 #define BOX_MODE_PIANO    1
 #define BOX_MODE_GAME     2
@@ -82,23 +85,33 @@ class Box {
 
         int boxMode=BOX_MODE_DEFAULT;
         const int Max9744i2cAddr = 0x4B;
-        uint8_t volume;
-        uint8_t rfidUid[7];
-        long rfidLastRead = 0;
+        uint8_t volume = 31;
+        
+        uint8_t nfcUid[7];
+        bool readerDisabled = false;
+        long nfcLastRead = 0;
+        int irqCurr = HIGH;
+        int irqPrev = HIGH;
+        const long DELAY_BETWEEN_CARDS = 500;
 
         bool vs1053_started = false;
         bool neotrellis_started = false;
         bool sdreader_started = false;
         bool rfid_started = false;
+        bool max9744_started = false;
 
         void begin();          // No constructor but a begin()
+        void loop();
         void selectMode();     // 
 
         bool setVolume(int8_t v);
         bool increaseVolume();
         bool decreaseVolume();
 
-        boolean readRFID();
+        //bool nfcReadId();
+        //void startListeningToNFC();
+        void checkNFC();
+        void readNFC();
 };
 
 #endif

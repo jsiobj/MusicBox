@@ -8,8 +8,9 @@
 No interrupt based method available in this lib.
 
 ### Adafruit library
-Not working with Elechouse breakout
+Got HSU to work but seems there is no interrupt when using HSU
+Could not get I2C nor SPI to work
 
 ### Seeed
-Not tested yet
+Seeed lib is a mess...
 

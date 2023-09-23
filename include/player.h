@@ -38,16 +38,21 @@
 #include <Arduino.h>
 #include "box.h"
 
-#define MAX_LIBRARY_COUNT      16
-#define MAX_ALBUM_COUNT        16
-#define MAX_TRACK_COUNT        16
+#define MAX_LIBRARY_COUNT      9
+#define MAX_ALBUM_COUNT        9
+#define MAX_TRACK_COUNT        9
 
 #define MAX_PATH_LENGTH 64
 
 // Main Buttons
-// #define BTN_ID_PREVIOUS   1
-// #define BTN_ID_PLAY_PAUSE 2
-// #define BTN_ID_NEXT       3
+#define BTN_ID_PREVIOUS   0
+#define BTN_ID_PLAY_PAUSE 1
+#define BTN_ID_NEXT       2
+#define BTN_ID_RANDOM     3
+#define BTN_ID_NEXT_PAGE  3
+#define BTN_ID_VOL_DOWN   12
+#define BTN_ID_VOL_UP     15
+#define BTN_ID_DUMP       14
 
 #define BTN_STATE_UNKNWOW 255
 
@@ -68,7 +73,7 @@ class MusicPlayer {
         byte playScope = SCOPE_NONE;
         bool autoPlayNext = false;
 
-        char rootPath[MAX_PATH_LENGTH] = "/music1";
+        char rootPath[MAX_PATH_LENGTH] = "/music";
 
         char libraries[MAX_LIBRARY_COUNT][MAX_PATH_LENGTH];
         char albums[MAX_ALBUM_COUNT][MAX_PATH_LENGTH];
@@ -91,22 +96,15 @@ class MusicPlayer {
         // Player engine
         void loop();
 
-        //void readButton();
-        // static TrellisCallback onKeyPressed(keyEvent event);
-        // static TrellisCallback onButtonPreviousPressed(keyEvent event);
-        // static TrellisCallback onButtonPlayPausePressed(keyEvent event);
-        // static TrellisCallback onButtonNextPressed(keyEvent event);
-        // void onButtonBackPressed();
-
         void setVolume(byte volume);
-
-        //void playAll();
+        void selectObject(uint8_t id);
 
         bool setNextTrack();
         //void setNextAlbum();
         //void setNextLibrary();
 
         //void loadLevel();
+        void navBack();
 
         void loadLibraries();
         void displayLibraries();
@@ -121,9 +119,11 @@ class MusicPlayer {
 
         //void loadTrack();
         void playTrack();
+        void playNextTrack();
         void pauseTrack();
         void unpauseTrack();
-
+        void playPause();
+        
         void dumpObject(bool dumpArray = false);
 
 
