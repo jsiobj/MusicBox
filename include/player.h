@@ -42,6 +42,8 @@
 #define MAX_ALBUM_COUNT        9
 #define MAX_TRACK_COUNT        9
 
+#define MAX_NAV_KEY  9
+
 #define MAX_PATH_LENGTH 64
 
 // Main Buttons
@@ -56,11 +58,6 @@
 
 #define BTN_STATE_UNKNWOW 255
 
-#define DEFAULT_VOLUME 100
-#define MAX_VOLUME     40
-#define MIN_VOLUME     140
-#define MID_VOLUME     110
-
 #define SCOPE_ALL      0
 #define SCOPE_LIBRARY  1
 #define SCOPE_ALBUM    2
@@ -69,12 +66,14 @@
 class MusicPlayer {
     public:
         //byte shuffle=false;
-        byte volume=DEFAULT_VOLUME;
         byte playScope = SCOPE_NONE;
         bool autoPlayNext = false;
 
         char rootPath[MAX_PATH_LENGTH] = "/music";
 
+        // Only paths of albums from current library and tracks from current album
+        // are stored at any given time. Not enough memory on arduino to store
+        // whole tracks of whole albums of whole library
         char libraries[MAX_LIBRARY_COUNT][MAX_PATH_LENGTH];
         char albums[MAX_ALBUM_COUNT][MAX_PATH_LENGTH];
         char tracks[MAX_TRACK_COUNT][MAX_PATH_LENGTH];
@@ -105,6 +104,7 @@ class MusicPlayer {
 
         //void loadLevel();
         void navBack();
+        void clearNav();
 
         void loadLibraries();
         void displayLibraries();
@@ -126,8 +126,11 @@ class MusicPlayer {
         
         void dumpObject(bool dumpArray = false);
 
+        uint8_t getLibraryList(uint8_t maxEntries);
+        uint8_t getAlbumList(uint8_t libraryId, uint8_t maxEntries);
+        uint8_t getTrackList(uint8_t libraryId, uint8_t albumId, uint8_t maxEntries);
 
-        byte readSD(char* rootPath, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries);
+        uint8_t readSD(char* rootPath, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries);
 };
 
 #endif

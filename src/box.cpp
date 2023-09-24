@@ -87,12 +87,13 @@ TrellisCallback setMode(keyEvent event) {
     return 0;
 }
 
-//=================================================================================
+//---------------------------------------------------------------------------------
 // Doing Box configuration
-//=================================================================================
+//---------------------------------------------------------------------------------
 void Box::begin() {
     DEBUG_PRINT("StartFunction");
 
+    trellis.pixels.setBrightness(16);
     if(box.neotrellis_started) {
         DEBUG_PRINT("Initializing NeoTrellis");
         for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
@@ -112,17 +113,17 @@ void Box::begin() {
 
 }
 
-//=================================================================================
+//---------------------------------------------------------------------------------
 // Box loop
-//=================================================================================
+//---------------------------------------------------------------------------------
 void Box::loop() {
     if(box.neotrellis_started) trellis.read();
     if(box.rfid_started)  checkNFC();
 }
 
-//=================================================================================
+//---------------------------------------------------------------------------------
 // Selecting box mode
-//=================================================================================
+//---------------------------------------------------------------------------------
 void Box::selectMode() {
     // Wait until key box mode is set (by pressing an allowed key)
     if(BOX_MODE_COUNT == 1) {
@@ -135,18 +136,16 @@ void Box::selectMode() {
     }
 }
 
-//=================================================================================
-// Setting Box volume
-//=================================================================================
-bool Box::setVolume(int8_t v) {
+//---------------------------------------------------------------------------------
+// Setting MAX9744 amp volume
+//---------------------------------------------------------------------------------
+bool Box::max9744SetVolume(uint8_t v) {
     DEBUG_PRINTF("Setting volume to %d",v);
-    
     Wire.beginTransmission(Max9744i2cAddr);
     Wire.write(v);
     uint8_t rc = Wire.endTransmission();
-    
     if ( rc == 0) {
-        volume = v;
+        max9744_volume = v;
         return true;
     }
     else {
@@ -155,18 +154,40 @@ bool Box::setVolume(int8_t v) {
     }
 }
 
-bool Box::increaseVolume() {
-    DEBUG_PRINTF("Increasing volume to %d",volume+1);
-    if(volume >= 63) return setVolume(63);
-    else             return setVolume(volume+1);
+//---------------------------------------------------------------------------------
+// Increase MAX9744 amp volume
+//---------------------------------------------------------------------------------
+bool Box::max9744IncreaseVolume() {
+    DEBUG_PRINTF("Increasing volume to %d",max9744_volume+1);
+    if(max9744_volume >= 63) return max9744SetVolume(63);
+    else             return max9744SetVolume(max9744_volume+1);
 }
 
-bool Box::decreaseVolume() {
-    DEBUG_PRINTF("Setting volume to %d",volume-1);
-    if(volume <=0) return setVolume(0);
-    else           return setVolume(volume-1);
+//---------------------------------------------------------------------------------
+// Decrease MAX9744 amp volume
+//---------------------------------------------------------------------------------
+bool Box::max9744DecreaseVolume() {
+    DEBUG_PRINTF("Setting volume to %d",max9744_volume-1);
+    if(max9744_volume <=0) return max9744SetVolume(0);
+    else           return max9744SetVolume(max9744_volume-1);
 }
 
+//---------------------------------------------------------------------------------
+// Setting VS1053 amp volume
+// WARNING : Higher value means lower volume
+//---------------------------------------------------------------------------------
+void Box::vs1053SetVolume(uint8_t v) {
+    DEBUG_PRINTF("StartFunction, volume:%d", v);
+    if(v < VS1053_MAX_VOLUME) v = VS1053_MAX_VOLUME; 
+    if(v > VS1053_MIN_VOLUME) v = VS1053_MIN_VOLUME;
+    vs1053FilePlayer.setVolume(v, v);     // Left and right channel volume (lower number mean louder)
+    vs1053_volume = v;
+    DEBUG_PRINTF("Volume set to %d", vs1053_volume);
+}
+
+//---------------------------------------------------------------------------------
+// Array to hex string helper 
+//---------------------------------------------------------------------------------
 void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
     int i;
     for (i = 0; i < length; i++) {

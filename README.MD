@@ -14,3 +14,17 @@ Could not get I2C nor SPI to work
 ### Seeed
 Seeed lib is a mess...
 
+### Conclusion
+Forgot pull ups on I2C lines...
+Works with Adafruit library
+
+## TODO
+### Config
+Have a mode to test and configure
+Keeping one key pressed at startup time get into maintenance mode
+
+Use SD card to store default / startup config
+- default brightness
+- default volume
+- keys config ?
+

@@ -130,6 +130,7 @@ void setup() {
     }
     else {
         DEBUG_PRINT("VS1053 started");
+        box.vs1053SetVolume(VS1053_DEFAULT_VOLUME); // Setting to max, will use MAX9477 volume
         box.vs1053_started = true;
     }
 
@@ -149,7 +150,7 @@ void setup() {
         trellis.read();
     }
 
-    if (! box.setVolume(box.volume)) {
+    if (! box.max9744SetVolume(MAX9744_DEFAULT_VOLUME)) {
         Serial.println("Failed to set volume, MAX9744 not found!");
     }
     else {

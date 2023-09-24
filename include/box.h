@@ -64,28 +64,39 @@
 
 #define RFID_READ_INTERVAL 1000
 
+#define VS1053_DEFAULT_VOLUME  2
+#define VS1053_MAX_VOLUME      0
+#define VS1053_MIN_VOLUME      140
+
+#define MAX9744_MAX_VOLUME     63
+#define MAX9744_MIN_VOLUME     0
+#define MAX9744_DEFAULT_VOLUME 30
+
 // See https://www.w3schools.com/colors/colors_picker.asp
-#define COLOR_RED    0xFF0000
-#define COLOR_ORANGE 0xB34700
-#define COLOR_YELLOW 0xFFFF00
-#define COLOR_OLIVE  0x66DD00
-#define COLOR_GREEN  0x008000
-#define COLOR_AQUA   0x00FF66
-#define COLOR_TEAL   0x00BFFF
-#define COLOR_BLUE   0x0080FF
-#define COLOR_NAVY   0x000080
-#define COLOR_MAROON 0x800000
-#define COLOR_PURPLE 0x800080
-#define COLOR_PINK   0xFF66B3
-#define COLOR_WHITE  0xFFFFFF
-#define COLOR_BLACK  0x000000
+#define COLOR_RED        0xFF0000
+#define COLOR_ORANGE     0xB34700
+#define COLOR_YELLOW     0xFFFF00
+#define COLOR_OLIVE      0x66DD00
+#define COLOR_GREEN      0x008000
+#define COLOR_AQUA       0x00FF66
+#define COLOR_TEAL       0x00BFFF
+#define COLOR_BLUE       0x0080FF
+#define COLOR_NAVY       0x000080
+#define COLOR_MAROON     0x800000
+#define COLOR_PURPLE     0x800080
+#define COLOR_PINK       0xFF66B3
+#define COLOR_WHITE      0xFFFFFF
+#define COLOR_DARKGREY   0x101010
+#define COLOR_LIGHTGREY  0xA0A0A0
+#define COLOR_BLACK      0x000000
 
 class Box {
     public:
 
         int boxMode=BOX_MODE_DEFAULT;
         const int Max9744i2cAddr = 0x4B;
-        uint8_t volume = 31;
+        uint8_t max9744_volume=MAX9744_DEFAULT_VOLUME;
+        uint8_t vs1053_volume=VS1053_DEFAULT_VOLUME;
         
         uint8_t nfcUid[7];
         bool readerDisabled = false;
@@ -104,9 +115,13 @@ class Box {
         void loop();
         void selectMode();     // 
 
-        bool setVolume(int8_t v);
-        bool increaseVolume();
-        bool decreaseVolume();
+        void vs1053SetVolume(uint8_t v);
+        void vs1053IncreaseVolume();
+        void vs1053DecreaseVolume();
+
+        bool max9744SetVolume(uint8_t v);
+        bool max9744IncreaseVolume();
+        bool max9744DecreaseVolume();
 
         //bool nfcReadId();
         //void startListeningToNFC();
