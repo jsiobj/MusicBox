@@ -63,13 +63,27 @@
 #define SCOPE_ALBUM    2
 #define SCOPE_NONE     255
 
+#define isLibrarySet() currentLibraryId != NO_KEY
+#define isAlbumSet() currentAlbumId != NO_KEY
+#define isTrackSet() currentTrackId != NO_KEY
+
+#define currentLevel()  (currentLibraryId / NO_KEY)+(currentAlbumId / NO_KEY)+(currentTrackId / NO_KEY)
+
+#define LEVEL_ROOT    3
+#define LEVEL_LIBRARY 2
+#define LEVEL_ALBUM   1
+#define LEVEL_TRACK   0
+
+#define LONG_KEY_PRESS_DELAY 2000  // ms
+
 class MusicPlayer {
     public:
         //byte shuffle=false;
         byte playScope = SCOPE_NONE;
         bool autoPlayNext = false;
 
-        char rootPath[MAX_PATH_LENGTH] = "/music";
+        char musicPath[MAX_PATH_LENGTH] = "/music";
+        char statePath[MAX_PATH_LENGTH] = "/state/";
 
         // Only paths of albums from current library and tracks from current album
         // are stored at any given time. Not enough memory on arduino to store
@@ -78,24 +92,39 @@ class MusicPlayer {
         char albums[MAX_ALBUM_COUNT][MAX_PATH_LENGTH];
         char tracks[MAX_TRACK_COUNT][MAX_PATH_LENGTH];
 
-        byte libraryCount;
-        byte albumCount;
-        byte trackCount;
+        uint8_t libraryCount;
+        uint8_t albumCount;
+        uint8_t trackCount;
 
-        byte currentLibraryId=NO_KEY;
-        byte currentAlbumId=NO_KEY;
-        byte currentTrackId=NO_KEY;
+        uint8_t currentLibraryId = NO_KEY;
+        uint8_t currentAlbumId = NO_KEY;
+        uint8_t currentTrackId = NO_KEY;
 
         // No constructor, (almost) everything in begin()
         void begin();
 
+        bool toggleAutoPlayNext() { DEBUG_PRINTF("Toggling autoplay from %d", autoPlayNext); autoPlayNext = !autoPlayNext; return autoPlayNext; }
+
+        void setLibraryId(uint8_t id)  { DEBUG_PRINTF("Setting id to %d", id); currentLibraryId = id; saveParam("library",id); }
+        void setAlbumId(uint8_t id)  { DEBUG_PRINTF("Setting id to %d", id); currentAlbumId = id; saveParam("album",id); }
+        void setTrackId(uint8_t id)  { DEBUG_PRINTF("Setting id to %d", id); currentTrackId = id; saveParam("track",id); }
+
+        void unsetLibraryId() { DEBUG_PRINT("Run"); currentLibraryId = NO_KEY; }
+        void unsetAlbumId() { DEBUG_PRINT("Run"); currentAlbumId = NO_KEY; }
+        void unsetTrackId() { DEBUG_PRINT("Run"); currentTrackId = NO_KEY; }
+
+        void restoreIds() { 
+            currentLibraryId = getParam("library"); currentAlbumId = getParam("album"); currentTrackId = getParam("track"); 
+            DEBUG_PRINTF("Got Ids %d %d %d", currentLibraryId, currentAlbumId, currentTrackId);
+        }
+
         // Getters
-        char* getTrackPath();
+        //char* getTrackPath();
 
         // Player engine
         void loop();
 
-        void setVolume(byte volume);
+        //void setVolume(byte volume);
         void selectObject(uint8_t id);
 
         bool setNextTrack();
@@ -125,6 +154,11 @@ class MusicPlayer {
         void playPause();
         
         void dumpObject(bool dumpArray = false);
+
+        void saveParam(const char *paramName, uint8_t paramValue);
+        uint8_t getParam(const char *paramName);
+        void saveAllParams();
+
 
         uint8_t getLibraryList(uint8_t maxEntries);
         uint8_t getAlbumList(uint8_t libraryId, uint8_t maxEntries);

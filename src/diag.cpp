@@ -1,49 +1,84 @@
+#define PREFER_SDFAT_LIBRARY 1
 #define DEBUG
 #include "debug.h"
 
-#include <SD.h>
-#include <Adafruit_NeoTrellis.h>
+#include <Adafruit_VS1053.h>
+#include <Custom_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
 #include "box.h"
 #include "diag.h"
+#include "player.h"
 
 extern Box box;
-extern Adafruit_NeoTrellis trellis;
+extern Custom_NeoTrellis trellis;
 extern Adafruit_PN532 nfc;
+extern SdFat SD;
 
-void printDirectory(File dir, int numTabs, int max_depth, int current_depth = 0) {
-    
-    DEBUG_PRINTF("Base directory: %s", dir.name());
+// void printDirectory(char *path, int max_depth) {
 
-    while(true) {
+//     DEBUG_PRINTF("Listing %s content", path)
+//     SD.ls(LS_R);
+
+//     // if(!SD.exists(path)) {
+//     //     DEBUG_PRINTF("Directory %s does not exists", path);
+//     //     return;
+//     // }
+
+//     // File dir = SD.open(path, O_RDONLY);
+
+//     // if(!dir) {
+//     //     DEBUG_PRINTF("Cannot open %s", path);
+//     //     return;
+//     // }
+
+//     // if(! dir.isDirectory()) {
+//     //     DEBUG_PRINTF("%s is not a directory", path);
+//     //     return;
+//     // }
+//     // dir.close();
+
+//     // printDirectory(dir, max_depth);
+// }
+
+// void printDirectory(File dir, int max_depth, int current_depth) {
+//     char fileNameBuffer[MAX_PATH_LENGTH];
+//     //char dirNameBuffer[MAX_PATH_LENGTH];
+
+//     //dir.getName(dirNameBuffer, MAX_PATH_LENGTH);
+//     //DEBUG_PRINTF("Base directory: %s", dirNameBuffer);
+
+//     dir.rewindDirectory();
+
+//     while(true) {
         
-        File entry =  dir.openNextFile();
-        if (! entry) {
-            // no more files
-            DEBUG_PRINT("No more files");
-            break;
-        }
-        for (uint8_t i=0; i<numTabs; i++) {
-            Serial.print('\t');
-        }
+//         File entry =  dir.openNextFile();
+//         for (uint8_t i=0; i<current_depth; i++) {
+//             Serial.print('\t');
+//         }
+//         if (! entry) {
+//             // no more files
+//             Serial.println("#OED");
+//             break;
+//         }
         
-        Serial.print(entry.name());
-        if (entry.isDirectory()) {
-            Serial.println("/");
-            if (current_depth <= max_depth) {
-                printDirectory(entry, numTabs+1, max_depth, current_depth+1);
-            }
-        } else {
-            // files have sizes, directories do not
-            Serial.print("\t\t");
-            Serial.println(entry.size(), DEC);
-        }
+//         entry.getName(fileNameBuffer,MAX_PATH_LENGTH);
+//         Serial.print(fileNameBuffer);
+//         if (entry.isDirectory()) {
+//             Serial.println("/");
+//             if (current_depth <= max_depth) {
+//                 printDirectory(entry, max_depth, current_depth+1);
+//             }
+//         } else {
+//             // files have sizes, directories do not
+//             Serial.print("\t\t");
+//             Serial.println(entry.size(), DEC);
+//         }
 
-        entry.close();
-    }
-    dir.rewindDirectory();
-}
+//         entry.close();
+//     }
+//     dir.rewindDirectory();
+// }
 
 TrellisCallback setColor(keyEvent event) {
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
@@ -71,7 +106,8 @@ TrellisCallback setColor(keyEvent event) {
             if(event.bit.NUM == 1) {
                 if(box.sdreader_started) {
                     File root = SD.open("/");
-                    printDirectory(root,0,0);
+                    SD.ls(LS_R);
+                    root.close();
                 }
                 else {
                     Serial.println("SD reader disabled");
@@ -127,10 +163,15 @@ void Diag::begin() {
         trellis.pixels.show();
     }
 
+    SD.volumeBegin();
+    FsFile rootDir;
+    rootDir.open("/");
+    rootDir.ls(LS_R);
+
     DEBUG_PRINT("ExitFunction");
 }
 
 // Main diag loop function
 void Diag::loop() {
-   
+    while(true) trellis.read();
 }

@@ -113,7 +113,7 @@ class Box {
 
         void begin();          // No constructor but a begin()
         void loop();
-        void selectMode();     // 
+        void selectMode();
 
         void vs1053SetVolume(uint8_t v);
         void vs1053IncreaseVolume();

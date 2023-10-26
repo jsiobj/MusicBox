@@ -29,14 +29,11 @@
   ---------------------------------------------------------------------------
 
 */
+#define PREFER_SDFAT_LIBRARY 1
 #define DEBUG
 
-//#include "I2C_Multi.h"
-
-#include <Arduino.h>
-#include <Adafruit_NeoTrellis.h>
 #include <Adafruit_VS1053.h>
-#include <SD.h>
+#include <Custom_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
 #include "debug.h"
@@ -51,13 +48,14 @@
 #define VS_SHIELD_DREQ    9      // VS1053 Data request (int pin)
 #define VS_SHIELD_RESET   11
 
-Adafruit_NeoTrellis trellis;
+Custom_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 Box box;
 Diag diag;
 MusicPlayer musicPlayer;
+SdFs SD;
 
 //=================================================================================
 // Callbacks / IRQ vectors
@@ -90,6 +88,118 @@ TrellisCallback setTestMode(keyEvent event) {
     return 0;
 }
 
+//------------------------------------------------------------------------------
+void printCardType() {
+
+  switch (SD.card()->type()) {
+      case SD_CARD_TYPE_SD1:
+          DEBUG_PRINT("SD started (SD1)");
+            break;
+
+    case SD_CARD_TYPE_SD2:
+        DEBUG_PRINT("SD started (SD2)");
+        break;
+
+    case SD_CARD_TYPE_SDHC:
+            DEBUG_PRINT("SD started (SDHC/SDXC)");
+        break;
+
+    default:
+        DEBUG_PRINT("SD started (Unknown)");
+  }
+}
+
+void i2cScan() {
+    // Scanning for I2C devices
+    // I2C addresses :
+    // PN532      : 0x24
+    // NeoTrellis : 0x2E
+    // MAX9744    : 0x4B
+    DEBUG_PRINT("Scanning I2C...");
+    for (uint8_t addr = 0; addr<=127; addr++) {
+        //Serial.print("Trying I2C 0x");  Serial.println(addr,HEX);
+        Wire.beginTransmission(addr);
+        if (!Wire.endTransmission()) {
+            DEBUG_PRINTF("Found I2C %x",addr);
+        }
+    }
+    DEBUG_PRINT("Scanning done");
+}
+
+void startSD() {
+    // Starting SD Reader
+    #define SD_CONFIG SdSpiConfig(VS_SHIELD_SDCS, SHARED_SPI, SD_SCK_MHZ(4))
+    if (!SD.cardBegin(SD_CONFIG)) {
+        SD.initErrorHalt(&Serial);
+        DEBUG_PRINT("SD failed or not present");
+        return;
+    }
+
+    if(!SD.volumeBegin()) {
+        DEBUG_PRINTF("Could not start SD Volume (error code: %d)", SD.sdErrorCode());
+        return;
+    }
+
+    printCardType();
+    box.sdreader_started = true;
+}
+
+void startVS1053() {
+    // Starting VS1053 player
+    if (!vs1053FilePlayer.begin()) { 
+        DEBUG_PRINT("Could not start VS1053");
+        return;
+    }
+
+    DEBUG_PRINT("VS1053 started");
+    box.vs1053SetVolume(VS1053_DEFAULT_VOLUME); // Setting to max, will use MAX9477 volume
+    box.vs1053_started = true;
+}
+
+void startTrellis() {
+    // Starting Trellis
+    if (!trellis.begin()) {
+        DEBUG_PRINT("Could not start NeoPixel Trellis");
+        return;
+    }
+
+    DEBUG_PRINT("NeoPixel Trellis started");
+    box.neotrellis_started = true;
+    // First, check if test mode was requested (ie a key is pressed at startup)
+    // If no key was pressed before reaching here
+    // We'll go on in "normal" mode
+    for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
+        trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH);
+        trellis.registerCallback(i, setTestMode);
+    }
+    trellis.read();
+}
+
+void startMAX9744() {
+    if (! box.max9744SetVolume(MAX9744_DEFAULT_VOLUME)) {
+        Serial.println("Failed to set volume, MAX9744 not found!");
+        return;
+    }
+
+    DEBUG_PRINT("MAX9744 Amplifier started");
+    box.max9744_started = true;
+}
+
+void startNFC() {
+    nfc.begin();
+    uint32_t versiondata = nfc.getFirmwareVersion();
+    if (! versiondata) {
+        DEBUG_PRINT("Could not start PN532 board");
+        return;
+    }
+
+    //attachInterrupt(digitalPinToInterrupt(PN532_IRQ), cardreading, FALLING);
+    DEBUG_PRINTF("PN5-%lx version %lx", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
+    //nfc.SAMConfig();
+    nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+    box.rfid_started = true;
+}
+
 //=================================================================================
 // SETUP
 //=================================================================================
@@ -99,84 +209,16 @@ void setup() {
     while(!Serial);
     DEBUG_PRINT("StartFunction");
 
-    // Scanning for I2C devices
-    // I2C addresses :
-    // PN532      : 0x24
-    // NeoTrellis : 0x2E
-    // MAX9744    : 0x4B
-    DEBUG_PRINT("Scanning I2C...");
-    Wire.begin();
-    for (uint8_t addr = 0; addr<=127; addr++) {
-        //Serial.print("Trying I2C 0x");  Serial.println(addr,HEX);
-        Wire.beginTransmission(addr);
-        if (!Wire.endTransmission()) {
-            DEBUG_PRINTF("Found I2C %x",addr);
-        }
-    }
-    DEBUG_PRINT("Scanning done");
+    startVS1053();
+    startSD();
+    startTrellis();
+    startMAX9744();
+    startNFC();
 
-    // Starting SD Reader
-    if (!SD.begin(VS_SHIELD_SDCS)) {
-        DEBUG_PRINT("SD failed or not present");
-    }
-    else {
-        DEBUG_PRINT("SD Card started");
-        box.sdreader_started = true;
-    }
+    i2cScan();
 
-    // Starting VS1053 player
-    if (!vs1053FilePlayer.begin()) { 
-        DEBUG_PRINT("Could not start VS1053");
-    }
-    else {
-        DEBUG_PRINT("VS1053 started");
-        box.vs1053SetVolume(VS1053_DEFAULT_VOLUME); // Setting to max, will use MAX9477 volume
-        box.vs1053_started = true;
-    }
-
-    // Starting Trellis
-    if (!trellis.begin()) {
-        DEBUG_PRINT("Could not start NeoPixel Trellis");
-    } else {
-        DEBUG_PRINT("NeoPixel Trellis started");
-        box.neotrellis_started = true;
-        // First, check if test mode was requested (ie a key is pressed at startup)
-        // If no key was pressed before reaching here
-        // We'll go on in "normal" mode
-        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH);
-            trellis.registerCallback(i, setTestMode);
-        }
-        trellis.read();
-    }
-
-    if (! box.max9744SetVolume(MAX9744_DEFAULT_VOLUME)) {
-        Serial.println("Failed to set volume, MAX9744 not found!");
-    }
-    else {
-        DEBUG_PRINT("MAX9744 Amplifier started");
-        box.max9744_started = true;
-    }
-
-    // Starting RFID Reader
-    // nfc.begin();
-    // uint32_t versiondata = nfc.getFirmwareVersion();
-    // if (! versiondata) {
-    //     DEBUG_PRINT("Could not start PN532 board");
-    // }
-    // else {
-    //     //attachInterrupt(digitalPinToInterrupt(PN532_IRQ), cardreading, FALLING);
-    //     DEBUG_PRINTF("PN5-%lx version %lx", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
-    //     //nfc.SAMConfig();
-    //     nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
-    //     box.rfid_started = true;
-    // }
-
-    // For testing purpose
-    // box.boxMode = BOX_MODE_DIAG;
-
-    // Init box object
     box.begin();
+    //box.boxMode = BOX_MODE_DIAG;
     box.selectMode();
 }
 

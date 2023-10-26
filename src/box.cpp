@@ -30,19 +30,20 @@
 
 */
 
+#define PREFER_SDFAT_LIBRARY 1
 #define DEBUG
 #include "debug.h"
 
 // #include <TimerOne.h>
 // #include <MMA8453_n0m1.h>
 #include <Adafruit_VS1053.h>
-#include <Adafruit_NeoTrellis.h>
+#include <Custom_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
 #include "box.h"
 
 extern Box box;
-extern Adafruit_NeoTrellis trellis;
+extern Custom_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
 extern Adafruit_PN532 nfc;
 
@@ -263,7 +264,7 @@ void Box::readNFC() {
         nfcLastRead = millis();
     }
     else {
-        DEBUG_PRINTF("Failed to read card");
+        DEBUG_PRINT("Failed to read card");
         nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
     }
 
