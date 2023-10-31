@@ -35,6 +35,8 @@
     #include <Arduino.h>
 
     #ifdef DEBUG
+        #define DEBUG_TIMER_START Serial.print("START"); uint32_t _ts_start = millis();
+        #define DEBUG_TIMER_STOP sprintf("END Took %ums", (millis() - _ts_start));
 
         #define DEBUG_PRINTF(...)              \
         { \
@@ -68,11 +70,11 @@
                 Serial.print("    "); Serial.print(z);          \
                 Serial.print(":"); Serial.println(array[z]);    \
             }
-
     #else
-      #define DEBUG_PRINT(str)
-      #define DEBUG_PRINTF(...)
-      #define DEBUG_PRINT_ARRAY(array,arrayName,arraySize)
+        #define DEBUG_PRINT(str)
+        #define DEBUG_PRINTF(...)
+        #define DEBUG_PRINT_ARRAY(array,arrayName,arraySize)
+        #define DEBUG_TIMER_START
+        #define DEBUG_TIMER_STOP
     #endif
-
 #endif

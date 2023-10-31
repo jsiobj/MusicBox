@@ -31,60 +31,52 @@
 */
 
 #define PREFER_SDFAT_LIBRARY 1
-#define DEBUG
+//#define DEBUG
 #include "debug.h"
 
 // #include <TimerOne.h>
 // #include <MMA8453_n0m1.h>
 #include <Adafruit_VS1053.h>
-#include <Custom_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
+#include "Adafruit_NeoTrellis.h"
 #include "box.h"
 
 extern Box box;
-extern Custom_NeoTrellis trellis;
+extern Adafruit_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
 extern Adafruit_PN532 nfc;
 
+// Button used as mode selector
+// Set to 255 if not used
+uint8_t mapButton2mode[] = { 
+    BOX_MODE_PLAYER, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
+     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
+     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
+     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_DIAG
+}; 
 
 TrellisCallback setMode(keyEvent event) {
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-    
-    switch (event.bit.EDGE) {
-        case SEESAW_KEYPAD_EDGE_RISING:
-            if(event.bit.NUM < BOX_MODE_COUNT) {
-                trellis.pixels.setPixelColor(event.bit.NUM,COLOR_GREEN);
-                trellis.pixels.show();
-                box.boxMode = event.bit.NUM;
-                DEBUG_PRINTF("Mode set to %d",box.boxMode);
-            }
-            else {
-                trellis.pixels.setPixelColor(event.bit.NUM,COLOR_RED);
-                trellis.pixels.show();
-                DEBUG_PRINTF("No mode affected to key %d",event.bit.NUM);
-            }
-            delay(500);
-            break;
 
-        case SEESAW_KEYPAD_EDGE_FALLING:
-            if(event.bit.NUM < BOX_MODE_COUNT) {
-                trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLUE);
-                trellis.pixels.show();
-                box.boxMode = event.bit.NUM;
-            }
-            else {
-                trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLACK);
-                trellis.pixels.show();
-            }
-
-            break;
-
-        default:
-            break;
+    if(event.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING) {
+        if(mapButton2mode[event.bit.NUM] != BOX_MODE_UNDEF) {
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_GREEN);
+            trellis.pixels.show();
+            box.boxMode = mapButton2mode[event.bit.NUM];
+            DEBUG_PRINTF("Mode set to %d",box.boxMode);
+        }
+        else {
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_RED);
+            trellis.pixels.show();
+            DEBUG_PRINTF("No mode affected to key %d",event.bit.NUM);        
+        }
     }
 
-
+    if(event.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING) {
+        trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLACK);
+        trellis.pixels.show();
+    }
     return 0;
 }
 
@@ -94,24 +86,37 @@ TrellisCallback setMode(keyEvent event) {
 void Box::begin() {
     DEBUG_PRINT("StartFunction");
 
-    trellis.pixels.setBrightness(16);
     if(box.neotrellis_started) {
+        trellis.pixels.setBrightness(16);
         DEBUG_PRINT("Initializing NeoTrellis");
-        for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH, false);
-            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW, false);
-            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING);
-            trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
-            trellis.unregisterCallback(i);
-            trellis.registerCallback(i, setMode);
-        }
+        for(uint16_t key=0; key<NEO_TRELLIS_NUM_KEYS; key++){
+            switch (mapButton2mode[key])
+            {
+                case BOX_MODE_UNDEF:
+                    break;
+                
+                #ifdef DEBUG
+                case BOX_MODE_DIAG:
+                    trellis.pixels.setPixelColor(key,COLOR_RED);
+                    boxModeCount++;
+                    break;
+                #endif
 
-        for(int i=0; i<BOX_MODE_COUNT; i++) {
-            trellis.pixels.setPixelColor(i,COLOR_BLUE);
+                default:
+                    trellis.pixels.setPixelColor(key,COLOR_GREEN);
+                    boxModeCount++;
+                    break;
+            }
+
+            trellis.activateKey(key, SEESAW_KEYPAD_EDGE_HIGH, false);
+            trellis.activateKey(key, SEESAW_KEYPAD_EDGE_LOW, false);
+            trellis.activateKey(key, SEESAW_KEYPAD_EDGE_FALLING);
+            trellis.activateKey(key, SEESAW_KEYPAD_EDGE_RISING);
+            trellis.unregisterCallback(key);
+            trellis.registerCallback(key, setMode);
         }
         trellis.pixels.show();
     }
-
 }
 
 //---------------------------------------------------------------------------------
@@ -126,10 +131,13 @@ void Box::loop() {
 // Selecting box mode
 //---------------------------------------------------------------------------------
 void Box::selectMode() {
-    // Wait until key box mode is set (by pressing an allowed key)
-    if(BOX_MODE_COUNT == 1) {
+    
+    // Only one mode... not much of a choice...
+    if(boxModeCount == 1) {
         boxMode = 0;
     }
+    // If more than one mode, wait until key box 
+    // mode is set (by pressing an allowed key)
     else {
         while(boxMode == BOX_MODE_UNDEF) {
             trellis.read();

@@ -29,20 +29,19 @@
     ---------------------------------------------------------------------------
 */
 #define PREFER_SDFAT_LIBRARY 1
-#define DEBUG
+//#define DEBUG
 #include "debug.h"
 
-#include <Custom_NeoTrellis.h>
+#include <Adafruit_NeoTrellis.h>
 #include <Adafruit_VS1053.h>
 
-//#include "misc.h"
 #include "box.h"
 #include "player.h"
 #include "diag.h"
 
 extern Box box;
 extern MusicPlayer musicPlayer;
-extern Custom_NeoTrellis trellis;
+extern Adafruit_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
 
 // Button used as selector for lib, album or track
@@ -54,6 +53,8 @@ uint8_t mapButton2Track[] = {
     255,   8,   9, 255
 }; 
 
+uint32_t autoPlayColorMap[] = { COLOR_RED, COLOR_GREEN }; // To determine the color of play/pause
+
 uint8_t button2track(uint8_t button) {
     return mapButton2Track[button];
 }
@@ -64,6 +65,10 @@ uint8_t track2button(uint8_t track) {
             return i;
     return 255;
 }
+
+uint32_t COLOR_CYCLE_ORANGE_RED[] = { COLOR_ORANGE, COLOR_RED };
+uint32_t COLOR_CYCLE_BLACK_PURPLE[] = { COLOR_BLACK, COLOR_RED };
+uint32_t COLOR_CYCLE_BLACK_RED[] = { COLOR_BLACK, COLOR_RED };
 
 //=========================================================================
 //=== CALLBACKS
@@ -96,19 +101,8 @@ TrellisCallback onBackPress(keyEvent event) {
 //-------------------------------------------------------------------------
 TrellisCallback onPlayPausePress(keyEvent event) {
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-    switch (event.bit.EDGE)
-    {
-        case SEESAW_KEYPAD_EDGE_RISING:
-            break;
-        
-        case SEESAW_KEYPAD_EDGE_FALLING:
-            DEBUG_PRINT("Button released");
-            musicPlayer.playPause();
-            break;
-
-        default:
-            DEBUG_PRINT("No relevant event");
-            break;
+    if(event.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING) {
+        if(!trellis.wasLongPressed(event.bit.NUM)) musicPlayer.playPause();
     }
     return 0;
 }
@@ -116,6 +110,7 @@ TrellisCallback onPlayPausePress(keyEvent event) {
 //-------------------------------------------------------------------------
 TrellisCallback onPlayPauseLongPress(keyEvent event) {
     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+    musicPlayer.enableAutoPlay(!musicPlayer.autoPlay);
     return 0;
 }
 
@@ -155,18 +150,15 @@ TrellisCallback onDumpKeyPressed(keyEvent event)  {
 //=== Methods
 //=========================================================================
 
-//-------------------------------------------------------------------------
-// Starting player
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Player initialization
+*/
+/**************************************************************************/
 void MusicPlayer::begin() { 
     DEBUG_PRINT("StartFunction");
 
     for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
-        // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_RISING);
-        // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LONGPRESS);
-        // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_FALLING,false);
-        // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_LOW,false);
-        // trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH,false);
         trellis.registerCallback(i, onTrackKeyPressed);
         trellis.pixels.setPixelColor(i,0xFFFFFF);
     }
@@ -180,7 +172,6 @@ void MusicPlayer::begin() {
     trellis.registerCallback(BTN_ID_VOL_DOWN, decreaseVol);
 
     trellis.pixels.setPixelColor(BTN_ID_BACK,COLOR_ORANGE);
-    trellis.pixels.setPixelColor(BTN_ID_PLAY_PAUSE,COLOR_RED);
     trellis.pixels.setPixelColor(BTN_ID_NEXT,COLOR_BLUE);
     trellis.pixels.setPixelColor(BTN_ID_NEXT_PAGE,COLOR_PURPLE);
     trellis.pixels.setPixelColor(BTN_ID_VOL_UP,COLOR_BLUE);
@@ -192,18 +183,18 @@ void MusicPlayer::begin() {
     mapButton2Track[BTN_ID_DUMP] = 255;
 #endif
 
-    trellis.pixels.show();
-
     loadLibraries();
-    restoreIds();
+    restoreState();
 
     if( isLibrarySet() ) {
         DEBUG_PRINTF("Loading album in default library no %d", currentLibraryId);
         loadAlbums();
         if(isAlbumSet()) {
-            DEBUG_PRINTF("Loading tracks in default album no %d", currentLibraryId);
+            DEBUG_PRINTF("Loading tracks in default album no %d", currentAlbumId);
             loadTracks();
             displayTracks();
+            trellis.pixels.setBlink(BTN_ID_PLAY_PAUSE, autoPlayColorMap[autoPlay], 200, !autoPlay);
+            if(autoPlay) playTrack();
         }
         else {
             displayAlbums();
@@ -216,23 +207,26 @@ void MusicPlayer::begin() {
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Player main loop
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Player main loop
+*/
+/**************************************************************************/
 void MusicPlayer::loop() {
 
     DEBUG_PRINT("StartFunction");
     
     while(true) {
         trellis.read();
+        trellis.pixels.showCycle();
 
         if(vs1053FilePlayer.playingMusic) {
             vs1053FilePlayer.feedBuffer();
         }
         else {
-            if(autoPlayNext && !vs1053FilePlayer.paused()) {
+            if(autoPlay && !vs1053FilePlayer.paused() && isTrackSet()) {
                 if(setNextTrack()) playTrack();
-                else autoPlayNext = false;
+                else enableAutoPlay(false);
             }
         }
     }
@@ -240,9 +234,23 @@ void MusicPlayer::loop() {
     DEBUG_PRINT("End");
 }
 
-//-------------------------------------------------------------------------
-// Load libraries from SD
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Enable or disable autoplay
+    @param enable enabled if true, disabled if false
+*/
+/**************************************************************************/
+void MusicPlayer::enableAutoPlay(bool enable) {
+    autoPlay = enable;
+    trellis.pixels.setBlink(BTN_ID_PLAY_PAUSE, autoPlayColorMap[enable], 200, !vs1053FilePlayer.playingMusic);
+    saveParam("autoplay", (uint8_t)autoPlay);
+}
+
+/**************************************************************************/
+/*!
+    @brief Load libraries from SD
+*/
+/**************************************************************************/
 void MusicPlayer::loadLibraries() {
 
     DEBUG_PRINT("StartFunction");
@@ -250,9 +258,11 @@ void MusicPlayer::loadLibraries() {
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Show libraries on keypad
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Set pixels to display all libraries
+*/
+/**************************************************************************/
 void MusicPlayer::displayLibraries() {
 
     DEBUG_PRINT("StartFunction");
@@ -262,22 +272,26 @@ void MusicPlayer::displayLibraries() {
         DEBUG_PRINTF("Enabling library %d",libraryRef);
         trellis.pixels.setPixelColor(track2button(libraryRef),COLOR_AQUA);
     }
-    trellis.pixels.show();
+    //trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Load library content
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Load albums of selected library from SD
+*/
+/**************************************************************************/
 void MusicPlayer::loadAlbums() {
     DEBUG_PRINT("StartFunction");
     albumCount = getAlbumList(currentLibraryId, MAX_ALBUM_COUNT);
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Show library content
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Set pixels to display albums of current library
+*/
+/**************************************************************************/
 void MusicPlayer::displayAlbums() {
 
     DEBUG_PRINT("StartFunction");
@@ -287,13 +301,15 @@ void MusicPlayer::displayAlbums() {
         DEBUG_PRINTF("Enabling album %d",albumRef);
         trellis.pixels.setPixelColor(track2button(albumRef),COLOR_NAVY);
     }
-    trellis.pixels.show();
+    //trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Load album content
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Load track of selected album from SD
+*/
+/**************************************************************************/
 void MusicPlayer::loadTracks() {
 
     DEBUG_PRINT("StartFunction");
@@ -301,9 +317,11 @@ void MusicPlayer::loadTracks() {
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Show album content
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Set pixels to display tracks of current album
+*/
+/**************************************************************************/
 void MusicPlayer::displayTracks() {
 
     DEBUG_PRINT("StartFunction");
@@ -312,118 +330,108 @@ void MusicPlayer::displayTracks() {
     for(byte trackRef = 0; trackRef < trackCount; trackRef++) {
         DEBUG_PRINTF("Enabling track %d",trackRef);
         if( trackRef == currentTrackId) {
-            trellis.pixels.setPixelColor(track2button(trackRef),COLOR_PURPLE);
+            trellis.pixels.setBlink(track2button(trackRef), COLOR_GREEN, 200UL);
         }
         else {
-            trellis.pixels.setPixelColor(track2button(trackRef),COLOR_LIGHTGREY);
+            trellis.pixels.setPixelColor(track2button(trackRef), COLOR_WHITE);
         }
     }
-    trellis.pixels.show();
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Play one track
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Play a track and set corresponding pixel accordingly
+*/
+/**************************************************************************/
 void MusicPlayer::playTrack() {
     DEBUG_PRINT("StartFunction");
 
-    if(vs1053FilePlayer.playingMusic) {
-        DEBUG_PRINTF("Stop track:%d %s",currentTrackId,tracks[currentTrackId]);
-        vs1053FilePlayer.stopPlaying();
-        trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_PINK);
+    if(vs1053FilePlayer.stopped()) {
+        DEBUG_PRINTF("Start track:%d %s",currentTrackId,tracks[currentTrackId]);
+        vs1053FilePlayer.startPlayingFile(tracks[currentTrackId]);
+    } 
+    else if(vs1053FilePlayer.paused()) {
+        vs1053FilePlayer.pausePlaying(false);
     }
-    DEBUG_PRINTF("Start track:%d %s",currentTrackId,tracks[currentTrackId]);
-    vs1053FilePlayer.startPlayingFile(tracks[currentTrackId]);
-    trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_PURPLE);
-    trellis.pixels.show();
+
+    trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_GREEN);
+    trellis.pixels.setPixelColor(BTN_ID_PLAY_PAUSE, autoPlayColorMap[autoPlay]);
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Pause
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Pause music and set corresponding pixel accordingly
+*/
+/**************************************************************************/
 void MusicPlayer::pauseTrack() {
     DEBUG_PRINT("StartFunction");
     vs1053FilePlayer.pausePlaying(true);
+    trellis.pixels.setMode(BTN_ID_PLAY_PAUSE, CYCLE_MODE_BLINK);
+    trellis.pixels.setMode(track2button(currentTrackId), CYCLE_MODE_BLINK);
     DEBUG_PRINT("ExitFunction");
 }
 
-//-------------------------------------------------------------------------
-// Play
-//-------------------------------------------------------------------------
-void MusicPlayer::unpauseTrack() {
-    DEBUG_PRINT("StartFunction");
-    vs1053FilePlayer.pausePlaying(false);
-    trellis.pixels.setPixelColor(track2button(currentTrackId),COLOR_PURPLE);
-    trellis.pixels.show();
-    DEBUG_PRINT("ExitFunction");
-}
-
-//-------------------------------------------------------------------------
-// Play / Pause
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Play or pause music depending on current state
+*/
+/**************************************************************************/
 void MusicPlayer::playPause() {
-
     DEBUG_PRINT("StartFunction");  
-    if(vs1053FilePlayer.stopped() || vs1053FilePlayer.paused()) autoPlayNext = true;
-    else autoPlayNext = false;
 
     if(playScope == SCOPE_NONE) {
-        if(currentTrackId != NO_KEY || currentAlbumId != NO_KEY) playScope = SCOPE_ALBUM;
-        else if(currentLibraryId != NO_KEY)                      playScope = SCOPE_LIBRARY;
-        else                                                     playScope = SCOPE_ALL;
+        if( isAlbumSet() )                 playScope = SCOPE_ALBUM;
+        else if( isLibrarySet() )          playScope = SCOPE_LIBRARY;
+        else                               playScope = SCOPE_ALL;
     }
-    // A track is already selected, play it or unpause it
-    if( currentTrackId != NO_KEY  ) {
-        if(vs1053FilePlayer.stopped()) playTrack();   // Current track not playing (finished or never started)
-        if(vs1053FilePlayer.paused())  unpauseTrack();
-        else                           pauseTrack();
+
+    // A track is already selected, play it
+    if( isTrackSet()  ) {
+        if(vs1053FilePlayer.playingMusic) pauseTrack();
+        else                              playTrack();
     }
     // No track is selected, playing the next track in scope
     else {
-        setNextTrack();
-        playTrack();
+        if(setNextTrack()) {
+            DEBUG_PRINTF("Asked to play whil no track active, enabling autoplay in scope");
+            enableAutoPlay(true);
+            playTrack();
+        }
+        else {
+            DEBUG_PRINTF("No track set, nothing left in scope");
+            enableAutoPlay(false);
+        }
     }
     DEBUG_PRINTF("ExitFunction,scope:%d",playScope);
 }
 
-//-------------------------------------------------------------------------
-// Select object by its ID depending where we are in nav tree
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Select object by its ID depending where we are in nav tree
+    @param id ID of the object (track, album or library)
+*/
+/**************************************************************************/
 void MusicPlayer::selectObject(uint8_t id) {
     DEBUG_PRINT("Start");
 
     uint8_t _currentLevel = currentLevel();
 
     if( _currentLevel <= LEVEL_ALBUM ) {
-    DEBUG_PRINT("At album level");
-        if(currentTrackId == id) {
+        DEBUG_PRINT("At album level");
+        if(getCurrentTrack() == id) {
             DEBUG_PRINT("Key pressed match current playing track : play/pause");
-            if(vs1053FilePlayer.stopped()) {
-                DEBUG_PRINT("Starting track");
-                playTrack();
-            } 
-            else {
-                if(vs1053FilePlayer.paused()) {
-                    DEBUG_PRINT("Paused, restarting");
-                    unpauseTrack();
-                }
-                else {
-                    DEBUG_PRINT("Playing, pausing");
-                    pauseTrack();
-                }
-            }
+            if(vs1053FilePlayer.playingMusic) pauseTrack();
+            else                              playTrack();
         }
         else {
             if(id < trackCount) {
                 vs1053FilePlayer.stopPlaying();
+                trellis.pixels.setPixelColor(track2button(getCurrentTrack()), COLOR_PURPLE);
                 setTrackId(id);
                 playTrack();
-                DEBUG_PRINT("ExitFunction | old track stopped, new track playing");  
-            }
-            else {
-                DEBUG_PRINT("ExitFunction, Track Id out of bound");  
+                DEBUG_PRINT("Old track stopped, new track playing");  
             }
         }
     }
@@ -445,7 +453,6 @@ void MusicPlayer::selectObject(uint8_t id) {
     DEBUG_PRINT("At root level");
         if(id < libraryCount) {
             setLibraryId(id);
-            saveParam("library",currentLibraryId);
             loadAlbums();
             displayAlbums();
             DEBUG_PRINT("ExitFunction, library set");  
@@ -461,29 +468,23 @@ void MusicPlayer::selectObject(uint8_t id) {
 // Back in nav tree
 //-------------------------------------------------------------------------
 void MusicPlayer::navBack() {
-
-    autoPlayNext = false;
-    playScope = SCOPE_NONE;
-    
     uint8_t _currentLevel = currentLevel();
+    enableAutoPlay(false);
 
     if(_currentLevel <= LEVEL_ALBUM) {
         vs1053FilePlayer.stopPlaying();
-        unsetTrackId();
-        unsetAlbumId();
+        unsetTrackId(); unsetAlbumId();
         displayAlbums();
+        playScope = SCOPE_LIBRARY;
         DEBUG_PRINT("ExitFunction, unset track id and album id");
     }
 
     if(_currentLevel == LEVEL_LIBRARY) {
-        unsetAlbumId();
-        unsetLibraryId();
+        unsetAlbumId(); unsetLibraryId();
         displayLibraries();
+        playScope = SCOPE_ALL;
         DEBUG_PRINT("ExitFunction,unset album id and library id");
     }
-
-    saveAllParams();
-
 }
 
 //-------------------------------------------------------------------------
@@ -502,23 +503,21 @@ bool MusicPlayer::setNextTrack() {
     
     DEBUG_PRINTF("StartFunction,scope %d",playScope);
 
-    if(currentTrackId == NO_KEY) {
-        if(currentAlbumId == NO_KEY) {
-            if(currentLibraryId == NO_KEY) {  // Nothing loaded yet
+    if(!isTrackSet()) {
+        if(!isAlbumSet()) {
+            if(isLibrarySet()) {  // Nothing loaded yet
+                DEBUG_PRINT("1st track in 1st album in first library");
                 setTrackId(0);
                 setAlbumId(0);
                 setLibraryId(0);
-
-                DEBUG_PRINT("1st track in 1st album in first library");
                 loadAlbums();
                 loadTracks();
                 displayTracks();
             }
             else {                            // Library loaded
+                DEBUG_PRINT("1st track in 1st album in current library");
                 setTrackId(0);
                 setAlbumId(0);
-
-                DEBUG_PRINT("1st track in 1st album in current library");
                 loadTracks();
                 displayTracks();
             }
@@ -530,7 +529,8 @@ bool MusicPlayer::setNextTrack() {
     }
     else {                                               // Track loaded
         if(currentTrackId+1<trackCount) {                // Track loaded & Next track available in the current album
-            DEBUG_PRINT("Next track in current album")
+            DEBUG_PRINT("Next track in current album");
+            trellis.pixels.setPixelColor(track2button(getCurrentTrack()), COLOR_PURPLE);
             setTrackId(currentTrackId+1);                           
         }          
         else {                                           // No more track in album
@@ -541,9 +541,9 @@ bool MusicPlayer::setNextTrack() {
             }          
           
             if(currentAlbumId+1<albumCount) {            // No more track in album, next album available and scope > album
+                DEBUG_PRINT("1st track in next album in current library")
                 setTrackId(0);    
                 setAlbumId(currentAlbumId+1);
-                DEBUG_PRINT("1st track in next album in current library")
                 loadTracks();
                 displayTracks();
             }
@@ -555,10 +555,10 @@ bool MusicPlayer::setNextTrack() {
                 }
 
                 if(currentLibraryId+1 < libraryCount) {    // No more album in library & scope is all
+                    DEBUG_PRINT("1st track in first album in next library")
                     setTrackId(0);
                     setAlbumId(0);
                     setLibraryId(currentLibraryId+1);
-                    DEBUG_PRINT("1st track in first album in next library")
                     loadAlbums();
                     loadTracks();
                     displayTracks();
@@ -567,8 +567,8 @@ bool MusicPlayer::setNextTrack() {
         }
     }
 
-    return true;
     DEBUG_PRINT("ExitFunction");
+    return true;
 }
 
 //-------------------------------------------------------------------------
@@ -580,13 +580,14 @@ void MusicPlayer::clearNav() {
     }
 }
 
-//-------------------------------------------------------------------------
-// Stores SD Card directory entries in an array
-// Returns entry count
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Stores SD Card directory entries in an array
+    @return Entry count
+*/
+/**************************************************************************/
 byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries) {
-    
-    DEBUG_PRINTF("StartFunction,path:%s,isDirectory:%d,maxEntries:%d",path,isDirectory,maxEntries);
+    DEBUG_PRINTF("START path:%s,isDirectory:%d,maxEntries:%d",path,isDirectory,maxEntries);
     FsFile dir;
     byte count = 0;
 
@@ -596,11 +597,6 @@ byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDir
     }
 
     dir.open(path);
-
-    // #ifdef DEBUG
-    // dir.ls(&Serial);
-    // #endif
-
     while(true) {
 
         if(count>=maxEntries) {
@@ -634,7 +630,7 @@ byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDir
     }
 
     dir.close();
-    DEBUG_PRINTF("ExitFunction,count:%d,path:%s",count,path)
+    DEBUG_PRINTF("END count:%d,path:%s",count,path)
     return count;
 }
 
@@ -682,13 +678,14 @@ void MusicPlayer::dumpObject(bool dumpArrays) {
     DEBUG_PRINTF("currentLibraryId      %d", currentLibraryId);
     DEBUG_PRINTF("currentAlbumId        %d", currentAlbumId);
     DEBUG_PRINTF("currentTrackId        %d", currentTrackId);
-    DEBUG_PRINTF("autoPlayNext          %d", autoPlayNext);
+    DEBUG_PRINTF("autoPlay              %d", autoPlay);
     DEBUG_PRINTF("currentLevel()        %d", currentLevel());
     DEBUG_PRINT("=======================================");
     DEBUG_PRINT("State files");
     DEBUG_PRINTF("library               %d", getParam("LIBRARY"));
     DEBUG_PRINTF("album                 %d", getParam("ALBUM"));
     DEBUG_PRINTF("track                 %d", getParam("TRACK"));
+    DEBUG_PRINTF("autoplay              %d", getParam("autoplay"));
     DEBUG_PRINT("=======================================");
 }
 
@@ -696,7 +693,7 @@ void MusicPlayer::dumpObject(bool dumpArrays) {
 // Saving a single param
 //-------------------------------------------------------------------------
 void MusicPlayer::saveParam(const char *paramName, uint8_t paramValue) {
-    DEBUG_PRINT("Start");
+    DEBUG_PRINT("START");
     char fullPath[27];
 
     if(not SD.exists(statePath)) {
@@ -707,10 +704,9 @@ void MusicPlayer::saveParam(const char *paramName, uint8_t paramValue) {
     strcpy(fullPath, statePath);
     strcat(fullPath, paramName);
 
-    //SD.remove(fullPath);
-
-    //char paramStr[4];
-    //itoa(paramValue,paramStr,10);
+    if(SD.exists(fullPath)) {
+        SD.remove(fullPath);
+    }
 
     DEBUG_PRINTF("Saving %d in %s", paramValue, fullPath);
     File f = SD.open(fullPath,O_WRITE  | O_CREAT);
@@ -724,44 +720,60 @@ void MusicPlayer::saveParam(const char *paramName, uint8_t paramValue) {
     else {
         DEBUG_PRINTF("Cannot openfile %s for writing", fullPath)
     }
-
+    DEBUG_PRINT("END");
 }
 
-//-------------------------------------------------------------------------
-// Get a previously saved param
-//-------------------------------------------------------------------------
+/**************************************************************************/
+/*!
+    @brief Get a previously saved param
+*/
+/**************************************************************************/
 uint8_t MusicPlayer::getParam(const char *paramName) {
+    DEBUG_PRINT("START");
+
     char fullPath[27];
     strcpy(fullPath, statePath);
     strcat(fullPath, paramName);
     char str[2];
 
     if(not SD.exists(fullPath)) {
-        DEBUG_PRINTF("No param file %s found", fullPath);
+        DEBUG_PRINTF("END No param file %s found", fullPath);
         return NO_KEY;
     }
     else {
         File f = SD.open(fullPath,FILE_READ);
         if(f) {
-            f.read(str,1);        
-            //uint8_t paramValue = atoi(paramStr);
-            DEBUG_PRINTF("Got %d as %s value in %s", str[0], paramName, fullPath);
-            return  str[0];
+            int bytes = f.read(str,1);
+            if(bytes == 1) {
+                DEBUG_PRINTF("END Got %d as %s value in %s", str[0], paramName, fullPath);
+                f.close();
+                return  str[0];
+            }
+            if(bytes == 0) {
+                DEBUG_PRINTF("END Got 0 as %s value in %s", paramName, fullPath);
+                f.close();
+                return 0;
+            }
+            if(bytes == -1 ) {
+                DEBUG_PRINTF("Error while reading %s", fullPath);
+                f.close();
+                return NO_KEY;
+            }
+            DEBUG_PRINTF("Error while reading, got %s in %s", str , fullPath);
+            f.close();
+            return 255;
+
         }
         else {
-            DEBUG_PRINTF("Cannot open file %s", fullPath);
+            DEBUG_PRINTF("END Cannot open file %s", fullPath);
             return 255;
         }
     }
 }
 
-//-------------------------------------------------------------------------
-// Saving a bunch of params
-//-------------------------------------------------------------------------
-void MusicPlayer::saveAllParams() {
-    DEBUG_PRINT("Start");
-    saveParam("TRACK", currentTrackId);
-    saveParam("ALBUM", currentAlbumId);
-    saveParam("LIBRARY", currentLibraryId);
+void MusicPlayer::restoreState() { 
+    currentLibraryId = getParam("library"); 
+    currentAlbumId = getParam("album"); 
+    currentTrackId = getParam("track");
+    autoPlay = getParam("autoplay");
 }
-

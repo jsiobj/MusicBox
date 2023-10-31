@@ -43,15 +43,18 @@
 #define ON 0x0
 #define OFF 0x1
 
-// Box modes
-#define BOX_MODE_COUNT 1
+#define BOX_MODE_DEFAULT 255
 
-#define BOX_MODE_DEFAULT -1
-#define BOX_MODE_UNDEF   -1
-#define BOX_MODE_DIAG    -2
-#define BOX_MODE_PLAYER   0
-#define BOX_MODE_PIANO    1
-#define BOX_MODE_GAME     2
+#define BOX_MODE_UNDEF   255
+#define BOX_MODE_PLAYER    0
+#define BOX_MODE_PIANO     1
+#define BOX_MODE_GAME      2
+
+#ifdef DEBUG
+#define BOX_MODE_DIAG     15
+#else
+#define BOX_MODE_DIAG     255
+#endif
 
 // Led bliking period
 #define MODE_LED_BLINK       100 // Blinking period in ms for mode selection
@@ -93,17 +96,18 @@
 class Box {
     public:
 
-        int boxMode=BOX_MODE_DEFAULT;
+        uint8_t boxMode=NO_KEY;
+        uint8_t boxModeCount;
         const int Max9744i2cAddr = 0x4B;
         uint8_t max9744_volume=MAX9744_DEFAULT_VOLUME;
         uint8_t vs1053_volume=VS1053_DEFAULT_VOLUME;
         
         uint8_t nfcUid[7];
         bool readerDisabled = false;
-        long nfcLastRead = 0;
+        uint32_t nfcLastRead = 0;
         int irqCurr = HIGH;
         int irqPrev = HIGH;
-        const long DELAY_BETWEEN_CARDS = 500;
+        const uint32_t DELAY_BETWEEN_CARDS = 500;
 
         bool vs1053_started = false;
         bool neotrellis_started = false;
@@ -127,6 +131,8 @@ class Box {
         //void startListeningToNFC();
         void checkNFC();
         void readNFC();
+
+        bool isModeSet() { return boxMode != NO_KEY; }
 };
 
 #endif

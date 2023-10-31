@@ -30,10 +30,10 @@
 
 */
 #define PREFER_SDFAT_LIBRARY 1
-#define DEBUG
+//#define DEBUG
 
 #include <Adafruit_VS1053.h>
-#include <Custom_NeoTrellis.h>
+#include <Adafruit_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
 #include "debug.h"
@@ -48,7 +48,7 @@
 #define VS_SHIELD_DREQ    9      // VS1053 Data request (int pin)
 #define VS_SHIELD_RESET   11
 
-Custom_NeoTrellis trellis;
+Adafruit_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
@@ -69,10 +69,10 @@ TrellisCallback setTestMode(keyEvent event) {
     switch (event.bit.EDGE) {
         case SEESAW_KEYPAD_EDGE_HIGH:
             for(int i=0;i<5;i++) {
-                trellis.pixels.setPixelColor(event.bit.NUM,255,0,0);
+                trellis.pixels.setPixelColor(event.bit.NUM,0xFF0000);
                 trellis.pixels.show();
                 delay(500);
-                trellis.pixels.setPixelColor(event.bit.NUM,0,0,0);
+                trellis.pixels.setPixelColor(event.bit.NUM,0x0);
                 trellis.pixels.show();
                 delay(500);
             }
@@ -205,8 +205,11 @@ void startNFC() {
 //=================================================================================
 void setup() {
 
+    #ifdef DEBUG
     Serial.begin(115200);
     while(!Serial);
+    #endif
+    
     DEBUG_PRINT("StartFunction");
 
     startVS1053();
@@ -218,7 +221,6 @@ void setup() {
     i2cScan();
 
     box.begin();
-    //box.boxMode = BOX_MODE_DIAG;
     box.selectMode();
 }
 
@@ -229,10 +231,12 @@ void loop() {
 
     // Once mode is selected, Starting the right loop
     switch (box.boxMode) {
-       case BOX_MODE_DIAG:
+        #ifdef DEBUG
+        case BOX_MODE_DIAG:
             diag.begin();
             diag.loop();
             break;    
+        #endif
 
         case BOX_MODE_PLAYER:
             musicPlayer.begin();
@@ -248,10 +252,7 @@ void loop() {
         default:
             DEBUG_PRINT("Ooops... unknown mode ! Restarting.");
             box.boxMode = BOX_MODE_UNDEF;
-             box.selectMode();
+            box.selectMode();
             break;
     }
-
-
-
 }
