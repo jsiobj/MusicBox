@@ -1,4 +1,13 @@
+# Music Box
+This is the code for a new version of [Noe's Jukebox](https://interactingobjects.com/?cat=104).
+This new version is based on new hardware (Adafruit NeoTrellis, Adafruit Feather M0 Proto...)
+
+This is still much in progress work.
+
 ## Tests of commuinication modes for PN532 / Elechouse module
+
+I'd like to add some RFID reader to be able to select. I am testing Elechouse PN532 reader.
+
 ### Elechouse Library
 
 - I2C : Does not work with NeoTrellis although addresses seem to be different
