@@ -29,7 +29,6 @@
     ---------------------------------------------------------------------------
 */
 #define PREFER_SDFAT_LIBRARY 1
-//#define DEBUG
 #include "debug.h"
 
 #include <Adafruit_NeoTrellis.h>
@@ -176,6 +175,7 @@ void MusicPlayer::begin() {
     trellis.pixels.setPixelColor(BTN_ID_NEXT_PAGE,COLOR_PURPLE);
     trellis.pixels.setPixelColor(BTN_ID_VOL_UP,COLOR_BLUE);
     trellis.pixels.setPixelColor(BTN_ID_VOL_DOWN,COLOR_BLUE);
+
 
 #ifdef DEBUG
     trellis.pixels.setPixelColor(BTN_ID_DUMP, COLOR_RED);

@@ -30,7 +30,6 @@
 
 */
 #define PREFER_SDFAT_LIBRARY 1
-//#define DEBUG
 
 #include <Adafruit_VS1053.h>
 #include <Adafruit_NeoTrellis.h>
@@ -157,7 +156,8 @@ void startVS1053() {
 }
 
 void startTrellis() {
-    // Starting Trellis
+    DEBUG_PRINT("Starting trellis");
+
     if (!trellis.begin()) {
         DEBUG_PRINT("Could not start NeoPixel Trellis");
         return;
@@ -212,13 +212,13 @@ void setup() {
     
     DEBUG_PRINT("StartFunction");
 
+    i2cScan();
+
     startVS1053();
     startSD();
     startTrellis();
     startMAX9744();
     startNFC();
-
-    i2cScan();
 
     box.begin();
     box.selectMode();

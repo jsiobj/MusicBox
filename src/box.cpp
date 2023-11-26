@@ -31,11 +31,8 @@
 */
 
 #define PREFER_SDFAT_LIBRARY 1
-//#define DEBUG
 #include "debug.h"
 
-// #include <TimerOne.h>
-// #include <MMA8453_n0m1.h>
 #include <Adafruit_VS1053.h>
 #include <Adafruit_PN532.h>
 
@@ -53,7 +50,7 @@ uint8_t mapButton2mode[] = {
     BOX_MODE_PLAYER, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
      BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
      BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
-     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_DIAG
+     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF
 }; 
 
 TrellisCallback setMode(keyEvent event) {
@@ -85,6 +82,10 @@ TrellisCallback setMode(keyEvent event) {
 //---------------------------------------------------------------------------------
 void Box::begin() {
     DEBUG_PRINT("StartFunction");
+
+    #ifdef DEBUG
+    mapButton2mode[NEO_TRELLIS_NUM_KEYS-1] = BOX_MODE_DIAG;
+    #endif
 
     if(box.neotrellis_started) {
         trellis.pixels.setBrightness(16);

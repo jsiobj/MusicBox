@@ -1,5 +1,4 @@
 #define PREFER_SDFAT_LIBRARY 1
-//#define DEBUG
 #include "debug.h"
 
 #include <Adafruit_VS1053.h>

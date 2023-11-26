@@ -34,6 +34,7 @@
 
     #include <Arduino.h>
 
+    #define DEBUG
     #ifdef DEBUG
         #define DEBUG_TIMER_START Serial.print("START"); uint32_t _ts_start = millis();
         #define DEBUG_TIMER_STOP sprintf("END Took %ums", (millis() - _ts_start));

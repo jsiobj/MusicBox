@@ -38,9 +38,15 @@
 #include <Arduino.h>
 #include "box.h"
 
+#ifdef DEBUG
 #define MAX_LIBRARY_COUNT      9
 #define MAX_ALBUM_COUNT        9
 #define MAX_TRACK_COUNT        9
+#else
+#define MAX_LIBRARY_COUNT      10
+#define MAX_ALBUM_COUNT        10
+#define MAX_TRACK_COUNT        10
+#endif
 
 #define MAX_NAV_KEY  9
 
