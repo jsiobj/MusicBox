@@ -14,10 +14,13 @@ extern Adafruit_NeoTrellis trellis;
 extern Adafruit_PN532 nfc;
 extern SdFat SD;
 extern MusicPlayer musicPlayer;
+extern FatVolume onboardFS;
 
 enum DIAG_BTN_ID {
   BTN_ID_I2C = 0,
-  BTN_ID_LS,          
+  BTN_ID_LS,     
+  BTD_ID_GETFILES, 
+  BTN_ID_LS2,    
   BTN_ID_RESET_PARAM,
   BTN_ID_LONG_PRESS1,
   BTN_ID_LONG_PRESS2,
@@ -72,6 +75,74 @@ TrellisCallback lsSD(keyEvent event) {
             }
             else {
                 Serial.println("SD reader disabled");
+            }
+            break;
+        
+        case SEESAW_KEYPAD_EDGE_FALLING:
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLUE);
+            DEBUG_PRINTF("Key %d released",event.bit.NUM);
+            break;
+
+        default:
+            break;
+    }
+    return 0;
+}
+
+TrellisCallback getAllSDFiles(keyEvent event) {
+    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+    switch (event.bit.EDGE) {
+        case SEESAW_KEYPAD_EDGE_RISING:
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_ORANGE);
+            if(box.sdreader_started) {
+                FsFile dir;
+                if(!dir.open("/")) {
+                    DEBUG_PRINT("Cannot open root dir");
+                    return 0;
+                }
+                while(true) {
+                    FsFile dirEntry;
+                    dirEntry.openNext(&dir, O_RDONLY);
+                    if(!dirEntry) {
+                        DEBUG_PRINT("No more entries");
+                        break;
+                    }
+                    char fileNameBuffer[MAX_PATH_LENGTH];
+                    dirEntry.getName(fileNameBuffer, MAX_PATH_LENGTH);
+                    DEBUG_PRINTF("Found %s",fileNameBuffer);
+                    dirEntry.close();
+                }
+                dir.close();
+            }
+            else {
+                Serial.println("SD reader disabled");
+            }
+            break;
+        
+        case SEESAW_KEYPAD_EDGE_FALLING:
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLUE);
+            DEBUG_PRINTF("Key %d released",event.bit.NUM);
+            break;
+
+        default:
+            break;
+    }
+    return 0;
+
+}
+
+TrellisCallback lsOnboardStorage(keyEvent event) {
+    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+    switch (event.bit.EDGE) {
+        case SEESAW_KEYPAD_EDGE_RISING:
+            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_ORANGE);
+            if(box.onboardStorage_started) {
+                File root = onboardFS.open("/");
+                onboardFS.ls(LS_R);
+                root.close();
+            }
+            else {
+                Serial.println("Onboard storage disabled");
             }
             break;
         
@@ -197,11 +268,12 @@ void Diag::begin() {
 
     DEBUG_PRINT("StartFunction");
 
-    DEBUG_PRINTF("VS4053     : %s",box.vs1053_started ? "Started" : "No started");
-    DEBUG_PRINTF("SD         : %s",box.sdreader_started ? "Started" : "No started");
-    DEBUG_PRINTF("NeoTrellis : %s",box.neotrellis_started ? "Started" : "No started");
-    DEBUG_PRINTF("NFC        : %s",box.rfid_started ? "Started" : "No started");
-    DEBUG_PRINTF("MAX9744    : %s",box.max9744_started ? "Started" : "No started");
+    DEBUG_PRINTF("VS4053          : %s",box.vs1053_started ? "Started" : "No started");
+    DEBUG_PRINTF("SD              : %s",box.sdreader_started ? "Started" : "No started");
+    DEBUG_PRINTF("NeoTrellis      : %s",box.neotrellis_started ? "Started" : "No started");
+    DEBUG_PRINTF("NFC             : %s",box.rfid_started ? "Started" : "No started");
+    DEBUG_PRINTF("MAX9744         : %s",box.max9744_started ? "Started" : "No started");
+    DEBUG_PRINTF("Onboard storage : %s",box.onboardStorage_started ? "Started" : "No started");
 
     if(box.neotrellis_started) {
         for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
@@ -215,6 +287,8 @@ void Diag::begin() {
 
         trellis.registerCallback(BTN_ID_I2C, listI2C);
         trellis.registerCallback(BTN_ID_LS, lsSD);          
+        trellis.registerCallback(BTD_ID_GETFILES, getAllSDFiles);          
+        trellis.registerCallback(BTN_ID_LS2, lsOnboardStorage);          
         trellis.registerCallback(BTN_ID_RESET_PARAM, resetParams);
         trellis.registerCallback(BTN_ID_BLINK, blink);
         trellis.registerCallback(BTN_ID_CYCLE, cycle);

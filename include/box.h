@@ -50,11 +50,11 @@
 #define BOX_MODE_PIANO     1
 #define BOX_MODE_GAME      2
 
-#ifdef DEBUG
+//#ifdef DEBUG
 #define BOX_MODE_DIAG     15
-#else
-#define BOX_MODE_DIAG     255
-#endif
+// #else
+// #define BOX_MODE_DIAG     255
+// #endif
 
 // Led bliking period
 #define MODE_LED_BLINK       100 // Blinking period in ms for mode selection
@@ -114,6 +114,7 @@ class Box {
         bool sdreader_started = false;
         bool rfid_started = false;
         bool max9744_started = false;
+        bool onboardStorage_started = false;
 
         void begin();          // No constructor but a begin()
         void loop();
@@ -129,8 +130,8 @@ class Box {
 
         //bool nfcReadId();
         //void startListeningToNFC();
-        void checkNFC();
-        void readNFC();
+        //void checkNFC();
+        //void readNFC();
 
         bool isModeSet() { return boxMode != NO_KEY; }
 };

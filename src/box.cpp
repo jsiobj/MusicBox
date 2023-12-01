@@ -96,12 +96,10 @@ void Box::begin() {
                 case BOX_MODE_UNDEF:
                     break;
                 
-                #ifdef DEBUG
                 case BOX_MODE_DIAG:
                     trellis.pixels.setPixelColor(key,COLOR_RED);
                     boxModeCount++;
                     break;
-                #endif
 
                 default:
                     trellis.pixels.setPixelColor(key,COLOR_GREEN);
@@ -125,7 +123,7 @@ void Box::begin() {
 //---------------------------------------------------------------------------------
 void Box::loop() {
     if(box.neotrellis_started) trellis.read();
-    if(box.rfid_started)  checkNFC();
+    //if(box.rfid_started)  checkNFC();
 }
 
 //---------------------------------------------------------------------------------
@@ -236,47 +234,47 @@ void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
 //     return success;
 // }
 
-void Box::checkNFC() {
+// void Box::checkNFC() {
 
-    if (readerDisabled) {
-        if (millis() - nfcLastRead > DELAY_BETWEEN_CARDS) {
-            readerDisabled = false;
-            irqPrev = irqCurr = HIGH;
-            DEBUG_PRINT("Waiting for an ISO14443A Card ...");
-            nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
-        }
-    } 
-    else {
-            irqCurr = digitalRead(PN532_IRQ);
+//     if (readerDisabled) {
+//         if (millis() - nfcLastRead > DELAY_BETWEEN_CARDS) {
+//             readerDisabled = false;
+//             irqPrev = irqCurr = HIGH;
+//             DEBUG_PRINT("Waiting for an ISO14443A Card ...");
+//             nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+//         }
+//     } 
+//     else {
+//             irqCurr = digitalRead(PN532_IRQ);
 
-            // When the IRQ is pulled low - the reader has got something for us.
-            if (irqCurr == LOW && irqPrev == HIGH) {
-            DEBUG_PRINT("Got NFC IRQ");
-            readNFC();
-        }
+//             // When the IRQ is pulled low - the reader has got something for us.
+//             if (irqCurr == LOW && irqPrev == HIGH) {
+//             DEBUG_PRINT("Got NFC IRQ");
+//             readNFC();
+//         }
 
-        irqPrev = irqCurr;
-    }    
-}
+//         irqPrev = irqCurr;
+//     }    
+// }
 
-void Box::readNFC() {
-    uint8_t success = false;
-    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-    uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+// void Box::readNFC() {
+//     uint8_t success = false;
+//     uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+//     uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
 
-    // read the NFC tag's info
-    success = nfc.readDetectedPassiveTargetID(uid, &uidLength);
-    if (success) {
-        char uidStr[15];
-        intArrayToHexString(uid,uidLength,uidStr);
-        DEBUG_PRINTF("Card detected, UID Length: %d bytes,  value: %s", uidLength, uidStr);
-        nfcLastRead = millis();
-    }
-    else {
-        DEBUG_PRINT("Failed to read card");
-        nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
-    }
+//     // read the NFC tag's info
+//     success = nfc.readDetectedPassiveTargetID(uid, &uidLength);
+//     if (success) {
+//         char uidStr[15];
+//         intArrayToHexString(uid,uidLength,uidStr);
+//         DEBUG_PRINTF("Card detected, UID Length: %d bytes,  value: %s", uidLength, uidStr);
+//         nfcLastRead = millis();
+//     }
+//     else {
+//         DEBUG_PRINT("Failed to read card");
+//         nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
+//     }
 
-    // The reader will be enabled again after DELAY_BETWEEN_CARDS ms will pass.
-    readerDisabled = true;
-}
+//     // The reader will be enabled again after DELAY_BETWEEN_CARDS ms will pass.
+//     readerDisabled = true;
+// }

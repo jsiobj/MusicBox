@@ -42,6 +42,7 @@ extern Box box;
 extern MusicPlayer musicPlayer;
 extern Adafruit_NeoTrellis trellis;
 extern Adafruit_VS1053_FilePlayer vs1053FilePlayer;
+extern FatVolume onboardFS;
 
 // Button used as selector for lib, album or track
 // Set to 255 if used as control (volume, next...)
@@ -186,6 +187,8 @@ void MusicPlayer::begin() {
     loadLibraries();
     restoreState();
 
+    trellis.pixels.setBlink(BTN_ID_PLAY_PAUSE, autoPlayColorMap[autoPlay], 200, !autoPlay);
+
     if( isLibrarySet() ) {
         DEBUG_PRINTF("Loading album in default library no %d", currentLibraryId);
         loadAlbums();
@@ -193,8 +196,7 @@ void MusicPlayer::begin() {
             DEBUG_PRINTF("Loading tracks in default album no %d", currentAlbumId);
             loadTracks();
             displayTracks();
-            trellis.pixels.setBlink(BTN_ID_PLAY_PAUSE, autoPlayColorMap[autoPlay], 200, !autoPlay);
-            if(autoPlay) playTrack();
+            //if(autoPlay) playTrack();
         }
         else {
             displayAlbums();
@@ -348,7 +350,7 @@ void MusicPlayer::playTrack() {
     DEBUG_PRINT("StartFunction");
 
     if(vs1053FilePlayer.stopped()) {
-        DEBUG_PRINTF("Start track:%d %s",currentTrackId,tracks[currentTrackId]);
+        DEBUG_PRINTF("Start library: %d alblum:%d track:%d %s",currentLibraryId,currentAlbumId,currentTrackId,tracks[currentTrackId]);
         vs1053FilePlayer.startPlayingFile(tracks[currentTrackId]);
     } 
     else if(vs1053FilePlayer.paused()) {
@@ -395,7 +397,7 @@ void MusicPlayer::playPause() {
     // No track is selected, playing the next track in scope
     else {
         if(setNextTrack()) {
-            DEBUG_PRINTF("Asked to play whil no track active, enabling autoplay in scope");
+            DEBUG_PRINTF("Asked to play while no track active, enabling autoplay in scope");
             enableAutoPlay(true);
             playTrack();
         }
@@ -505,7 +507,7 @@ bool MusicPlayer::setNextTrack() {
 
     if(!isTrackSet()) {
         if(!isAlbumSet()) {
-            if(isLibrarySet()) {  // Nothing loaded yet
+            if(!isLibrarySet()) {  // Nothing loaded yet
                 DEBUG_PRINT("1st track in 1st album in first library");
                 setTrackId(0);
                 setAlbumId(0);
@@ -696,20 +698,20 @@ void MusicPlayer::saveParam(const char *paramName, uint8_t paramValue) {
     DEBUG_PRINT("START");
     char fullPath[27];
 
-    if(not SD.exists(statePath)) {
+    if(not onboardFS.exists(statePath)) {
         DEBUG_PRINT("State dir does not exists, creating");
-        SD.mkdir(statePath);
+        onboardFS.mkdir(statePath);
     }
 
     strcpy(fullPath, statePath);
     strcat(fullPath, paramName);
 
-    if(SD.exists(fullPath)) {
-        SD.remove(fullPath);
+    if(onboardFS.exists(fullPath)) {
+        onboardFS.remove(fullPath);
     }
 
     DEBUG_PRINTF("Saving %d in %s", paramValue, fullPath);
-    File f = SD.open(fullPath,O_WRITE  | O_CREAT);
+    File f = onboardFS.open(fullPath,O_WRITE  | O_CREAT);
     if(f) {
         DEBUG_PRINT("Writing...");
         char str[2] = { paramValue, 0  };
@@ -736,12 +738,12 @@ uint8_t MusicPlayer::getParam(const char *paramName) {
     strcat(fullPath, paramName);
     char str[2];
 
-    if(not SD.exists(fullPath)) {
+    if(not onboardFS.exists(fullPath)) {
         DEBUG_PRINTF("END No param file %s found", fullPath);
         return NO_KEY;
     }
     else {
-        File f = SD.open(fullPath,FILE_READ);
+        File f = onboardFS.open(fullPath,FILE_READ);
         if(f) {
             int bytes = f.read(str,1);
             if(bytes == 1) {

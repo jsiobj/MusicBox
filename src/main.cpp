@@ -35,6 +35,10 @@
 #include <Adafruit_NeoTrellis.h>
 #include <Adafruit_PN532.h>
 
+#include <SdFat.h>
+#include <Adafruit_SPIFlash.h>
+//#include <flash_config.h>
+
 #include "debug.h"
 #include "box.h"
 #include "diag.h"
@@ -51,10 +55,14 @@ Adafruit_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
+Adafruit_FlashTransport_SPI flashTransport(EXTERNAL_FLASH_USE_CS, EXTERNAL_FLASH_USE_SPI);
+
 Box box;
 Diag diag;
 MusicPlayer musicPlayer;
-SdFs SD;
+SdFat SD;
+Adafruit_SPIFlash onboardStorage(&flashTransport);
+FatVolume onboardFS;
 
 //=================================================================================
 // Callbacks / IRQ vectors
@@ -63,29 +71,29 @@ SdFs SD;
 //---------------------------------------------------------------------------------
 // If any key is pressed at startup, go into test mode
 //---------------------------------------------------------------------------------
-TrellisCallback setTestMode(keyEvent event) {
-    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
-    switch (event.bit.EDGE) {
-        case SEESAW_KEYPAD_EDGE_HIGH:
-            for(int i=0;i<5;i++) {
-                trellis.pixels.setPixelColor(event.bit.NUM,0xFF0000);
-                trellis.pixels.show();
-                delay(500);
-                trellis.pixels.setPixelColor(event.bit.NUM,0x0);
-                trellis.pixels.show();
-                delay(500);
-            }
+// TrellisCallback setTestMode(keyEvent event) {
+//     DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+//     switch (event.bit.EDGE) {
+//         case SEESAW_KEYPAD_EDGE_HIGH:
+//             for(int i=0;i<5;i++) {
+//                 trellis.pixels.setPixelColor(event.bit.NUM,0xFF0000);
+//                 trellis.pixels.show();
+//                 delay(500);
+//                 trellis.pixels.setPixelColor(event.bit.NUM,0x0);
+//                 trellis.pixels.show();
+//                 delay(500);
+//             }
 
-            box.boxMode = BOX_MODE_DIAG;
-            DEBUG_PRINTF("Key %d pressed",event.bit.NUM);
-            DEBUG_PRINT("Entering test mode")
-            break;
+//             box.boxMode = BOX_MODE_DIAG;
+//             DEBUG_PRINTF("Key %d pressed",event.bit.NUM);
+//             DEBUG_PRINT("Entering test mode")
+//             break;
         
-        default:
-            break;
-    }
-    return 0;
-}
+//         default:
+//             break;
+//     }
+//     return 0;
+// }
 
 //------------------------------------------------------------------------------
 void printCardType() {
@@ -165,12 +173,8 @@ void startTrellis() {
 
     DEBUG_PRINT("NeoPixel Trellis started");
     box.neotrellis_started = true;
-    // First, check if test mode was requested (ie a key is pressed at startup)
-    // If no key was pressed before reaching here
-    // We'll go on in "normal" mode
     for(int i=0; i<NEO_TRELLIS_NUM_KEYS; i++){
         trellis.activateKey(i, SEESAW_KEYPAD_EDGE_HIGH);
-        trellis.registerCallback(i, setTestMode);
     }
     trellis.read();
 }
@@ -185,20 +189,32 @@ void startMAX9744() {
     box.max9744_started = true;
 }
 
-void startNFC() {
-    nfc.begin();
-    uint32_t versiondata = nfc.getFirmwareVersion();
-    if (! versiondata) {
-        DEBUG_PRINT("Could not start PN532 board");
-        return;
+void startOnboardStorage() {
+    onboardStorage.begin();
+    if (!onboardFS.begin(&onboardStorage,true)) {
+        DEBUG_PRINT("Failed to start on board storage");
+        box.onboardStorage_started = false;
     }
-
-    //attachInterrupt(digitalPinToInterrupt(PN532_IRQ), cardreading, FALLING);
-    DEBUG_PRINTF("PN5-%lx version %lx", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
-    //nfc.SAMConfig();
-    nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
-    box.rfid_started = true;
+    else {
+        DEBUG_PRINT("On board storage started");
+        box.onboardStorage_started = true;
+    }
 }
+
+// void startNFC() {
+//     nfc.begin();
+//     uint32_t versiondata = nfc.getFirmwareVersion();
+//     if (! versiondata) {
+//         DEBUG_PRINT("Could not start PN532 board");
+//         return;
+//     }
+
+//     //attachInterrupt(digitalPinToInterrupt(PN532_IRQ), cardreading, FALLING);
+//     DEBUG_PRINTF("PN5-%lx version %lx", (versiondata>>24) & 0xFF,(versiondata>>16) & 0xFF); 
+//     //nfc.SAMConfig();
+//     nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+//     box.rfid_started = true;
+// }
 
 //=================================================================================
 // SETUP
@@ -216,9 +232,10 @@ void setup() {
 
     startVS1053();
     startSD();
+    startOnboardStorage();
     startTrellis();
     startMAX9744();
-    startNFC();
+    //startNFC();
 
     box.begin();
     box.selectMode();
@@ -231,12 +248,10 @@ void loop() {
 
     // Once mode is selected, Starting the right loop
     switch (box.boxMode) {
-        #ifdef DEBUG
         case BOX_MODE_DIAG:
             diag.begin();
             diag.loop();
             break;    
-        #endif
 
         case BOX_MODE_PLAYER:
             musicPlayer.begin();
