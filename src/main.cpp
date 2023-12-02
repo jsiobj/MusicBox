@@ -55,12 +55,13 @@ Adafruit_NeoTrellis trellis;
 Adafruit_VS1053_FilePlayer vs1053FilePlayer = Adafruit_VS1053_FilePlayer(VS_SHIELD_RESET,VS_SHIELD_CS,VS_SHIELD_XDCS,VS_SHIELD_DREQ,VS_SHIELD_SDCS);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
-Adafruit_FlashTransport_SPI flashTransport(EXTERNAL_FLASH_USE_CS, EXTERNAL_FLASH_USE_SPI);
+
 
 Box box;
 Diag diag;
 MusicPlayer musicPlayer;
 SdFat SD;
+Adafruit_FlashTransport_SPI flashTransport(EXTERNAL_FLASH_USE_CS, EXTERNAL_FLASH_USE_SPI);
 Adafruit_SPIFlash onboardStorage(&flashTransport);
 FatVolume onboardFS;
 

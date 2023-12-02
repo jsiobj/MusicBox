@@ -590,7 +590,7 @@ void MusicPlayer::clearNav() {
 /**************************************************************************/
 byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries) {
     DEBUG_PRINTF("START path:%s,isDirectory:%d,maxEntries:%d",path,isDirectory,maxEntries);
-    FsFile dir;
+    File dir = SD.open(path);
     byte count = 0;
 
     // Resetting all entries
@@ -598,7 +598,6 @@ byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDir
         entries[i][0] = 0;
     }
 
-    dir.open(path);
     while(true) {
 
         if(count>=maxEntries) {
@@ -606,7 +605,7 @@ byte MusicPlayer::readSD(char* path, char entries[][MAX_PATH_LENGTH], bool isDir
             break;
         }
     
-        FsFile dirEntry;
+        File dirEntry;
         dirEntry.openNext(&dir, O_RDONLY);
         
         if(!dirEntry) {

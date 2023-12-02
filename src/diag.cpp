@@ -17,10 +17,11 @@ extern MusicPlayer musicPlayer;
 extern FatVolume onboardFS;
 
 enum DIAG_BTN_ID {
-  BTN_ID_I2C = 0,
-  BTN_ID_LS,     
-  BTD_ID_GETFILES, 
-  BTN_ID_LS2,    
+  BTN_ID_SD_LS = 0,     
+  BTD_ID_SD_GETFILES, 
+  BTN_ID_ONBOARD_LS,    
+  BTN_ID_ONBOARD_GETFILES,    
+  BTN_ID_I2C,
   BTN_ID_RESET_PARAM,
   BTN_ID_LONG_PRESS1,
   BTN_ID_LONG_PRESS2,
@@ -95,14 +96,14 @@ TrellisCallback getAllSDFiles(keyEvent event) {
         case SEESAW_KEYPAD_EDGE_RISING:
             trellis.pixels.setPixelColor(event.bit.NUM,COLOR_ORANGE);
             if(box.sdreader_started) {
-                FsFile dir;
-                if(!dir.open("/")) {
+                File sdRoot = SD.open("/");
+                if(!sdRoot) {
                     DEBUG_PRINT("Cannot open root dir");
                     return 0;
                 }
                 while(true) {
-                    FsFile dirEntry;
-                    dirEntry.openNext(&dir, O_RDONLY);
+                    File dirEntry;
+                    dirEntry.openNext(&sdRoot, O_RDONLY);
                     if(!dirEntry) {
                         DEBUG_PRINT("No more entries");
                         break;
@@ -112,7 +113,7 @@ TrellisCallback getAllSDFiles(keyEvent event) {
                     DEBUG_PRINTF("Found %s",fileNameBuffer);
                     dirEntry.close();
                 }
-                dir.close();
+                sdRoot.close();
             }
             else {
                 Serial.println("SD reader disabled");
@@ -286,9 +287,9 @@ void Diag::begin() {
         }
 
         trellis.registerCallback(BTN_ID_I2C, listI2C);
-        trellis.registerCallback(BTN_ID_LS, lsSD);          
-        trellis.registerCallback(BTD_ID_GETFILES, getAllSDFiles);          
-        trellis.registerCallback(BTN_ID_LS2, lsOnboardStorage);          
+        trellis.registerCallback(BTN_ID_SD_LS, lsSD);          
+        trellis.registerCallback(BTD_ID_SD_GETFILES, getAllSDFiles);          
+        trellis.registerCallback(BTN_ID_ONBOARD_LS, lsOnboardStorage);          
         trellis.registerCallback(BTN_ID_RESET_PARAM, resetParams);
         trellis.registerCallback(BTN_ID_BLINK, blink);
         trellis.registerCallback(BTN_ID_CYCLE, cycle);

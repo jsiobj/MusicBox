@@ -41,7 +41,7 @@
 
         #define DEBUG_PRINTF(...)              \
         { \
-            char DEBUG_MSG_BUFFER[256]; \
+            char DEBUG_MSG_BUFFER[512]; \
             sprintf(DEBUG_MSG_BUFFER,__VA_ARGS__); \
             Serial.print(millis());            \
             Serial.print("|");                 \
