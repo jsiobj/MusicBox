@@ -76,11 +76,23 @@
 #define LEVEL_ALBUM   1
 #define LEVEL_TRACK   0
 
-#define LONG_KEY_PRESS_DELAY 2000  // ms
+#define LONG_KEY_PRESS_DELAY 500UL  // ms
+#define BLINK_PAUSE_PERIOD 200UL // ms
+
+#define PLAY_STATUS_STOPPED    0
+#define PLAY_STATUS_PLAYING    1
+#define PLAY_STATUS_PAUSED     2
+
+#define setTrackLedToPause() trellis.pixels.setBlink(track2button(getCurrentTrack()), COLOR_GREEN, BLINK_PAUSE_PERIOD, true);
+#define setTrackLedToFinished() trellis.pixels.setBlink(track2button(getCurrentTrack()), COLOR_PURPLE, BLINK_PAUSE_PERIOD, true);
+#define setTrackLedToPlay() trellis.pixels.setColor(track2button(getCurrentTrack()), COLOR_GREEN);
+#define setTrackLedToStop() trellis.pixels.setColor(track2button(getCurrentTrack()), COLOR_PURPLE);
+
 
 class MusicPlayer {
     public:
         bool autoPlay = false;
+        uint8_t playStatus = PLAY_STATUS_STOPPED;
 
         void begin();
 
@@ -88,7 +100,7 @@ class MusicPlayer {
 
         void setLibraryId(uint8_t id)  { currentLibraryId = id; saveParam("library", id); }
         void setAlbumId(uint8_t id)  { currentAlbumId = id; saveParam("album", id); }
-        void setTrackId(uint8_t id)  { currentTrackId = id; saveParam("track", id); }
+        void setTrackId(uint8_t id)  { currentTrackId = id; playStatus = PLAY_STATUS_STOPPED; saveParam("track", id); }
 
         void unsetLibraryId() { currentLibraryId = NO_KEY; saveParam("library", NO_KEY); }
         void unsetAlbumId() { currentAlbumId = NO_KEY; saveParam("album", NO_KEY); }
@@ -97,6 +109,13 @@ class MusicPlayer {
         bool isLibrarySet() { return currentLibraryId != NO_KEY; }
         bool isAlbumSet()   { return currentAlbumId != NO_KEY; }
         bool isTrackSet()   { return currentTrackId != NO_KEY; }
+
+        //bool hasTrackBeenStarted() { return playStatus == PLA; }
+        bool isTrackPlaying() { return playStatus == PLAY_STATUS_PLAYING; }
+        bool isTrackPaused() { return playStatus == PLAY_STATUS_PAUSED; }
+        bool isTrackStopped() { return playStatus == PLAY_STATUS_STOPPED; }
+
+        uint8_t getStatus() { return playStatus; };
 
         uint8_t getCurrentTrack() { return currentTrackId; }
         uint8_t getCurrentAlbum() { return currentAlbumId; }
@@ -124,6 +143,7 @@ class MusicPlayer {
         void playNextTrack();
         void pauseTrack();
         void playPause();
+        void stopTrack();
         
         void dumpObject(bool dumpArray = false);
 

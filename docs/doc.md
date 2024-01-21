@@ -30,3 +30,7 @@ Use SD card to store default / startup config
 - default brightness
 - default volume
 - keys config ?
+
+### Bugs
+- when paused and selecting a new track, old track keeps blinking green
+- when track ends, should turn purple and shoud unset track
