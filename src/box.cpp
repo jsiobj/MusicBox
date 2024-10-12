@@ -46,32 +46,36 @@ extern Adafruit_PN532 nfc;
 
 // Button used as mode selector
 // Set to 255 if not used
-uint8_t mapButton2mode[] = { 
+uint8_t mapButton2mode[] = {
     BOX_MODE_PLAYER, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
-     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
-     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
-     BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF
-}; 
+    BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
+    BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF,
+    BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF, BOX_MODE_UNDEF};
 
-TrellisCallback setMode(keyEvent event) {
-    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]",event.bit.EDGE, event.bit.NUM, event.reg);
+TrellisCallback setMode(keyEvent event)
+{
+    DEBUG_PRINTF("Key event: EDGE[%d] NUM[%d] Reg[%x]", event.bit.EDGE, event.bit.NUM, event.reg);
 
-    if(event.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING) {
-        if(mapButton2mode[event.bit.NUM] != BOX_MODE_UNDEF) {
-            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_GREEN);
+    if (event.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING)
+    {
+        if (mapButton2mode[event.bit.NUM] != BOX_MODE_UNDEF)
+        {
+            trellis.pixels.setPixelColor(event.bit.NUM, COLOR_GREEN);
             trellis.pixels.show();
             box.boxMode = mapButton2mode[event.bit.NUM];
-            DEBUG_PRINTF("Mode set to %d",box.boxMode);
+            DEBUG_PRINTF("Mode set to %d", box.boxMode);
         }
-        else {
-            trellis.pixels.setPixelColor(event.bit.NUM,COLOR_RED);
+        else
+        {
+            trellis.pixels.setPixelColor(event.bit.NUM, COLOR_RED);
             trellis.pixels.show();
-            DEBUG_PRINTF("No mode affected to key %d",event.bit.NUM);        
+            DEBUG_PRINTF("No mode affected to key %d", event.bit.NUM);
         }
     }
 
-    if(event.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING) {
-        trellis.pixels.setPixelColor(event.bit.NUM,COLOR_BLACK);
+    if (event.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING)
+    {
+        trellis.pixels.setPixelColor(event.bit.NUM, COLOR_BLACK);
         trellis.pixels.show();
     }
     return 0;
@@ -80,31 +84,34 @@ TrellisCallback setMode(keyEvent event) {
 //---------------------------------------------------------------------------------
 // Doing Box configuration
 //---------------------------------------------------------------------------------
-void Box::begin() {
+void Box::begin()
+{
     DEBUG_PRINT("StartFunction");
 
-    #ifdef DEBUG
-    mapButton2mode[NEO_TRELLIS_NUM_KEYS-1] = BOX_MODE_DIAG;
-    #endif
+#ifdef DEBUG
+    mapButton2mode[NEO_TRELLIS_NUM_KEYS - 1] = BOX_MODE_DIAG;
+#endif
 
-    if(box.neotrellis_started) {
+    if (box.neotrellis_started)
+    {
         trellis.pixels.setBrightness(16);
         DEBUG_PRINT("Initializing NeoTrellis");
-        for(uint16_t key=0; key<NEO_TRELLIS_NUM_KEYS; key++){
+        for (uint16_t key = 0; key < NEO_TRELLIS_NUM_KEYS; key++)
+        {
             switch (mapButton2mode[key])
             {
-                case BOX_MODE_UNDEF:
-                    break;
-                
-                case BOX_MODE_DIAG:
-                    trellis.pixels.setPixelColor(key,COLOR_RED);
-                    boxModeCount++;
-                    break;
+            case BOX_MODE_UNDEF:
+                break;
 
-                default:
-                    trellis.pixels.setPixelColor(key,COLOR_GREEN);
-                    boxModeCount++;
-                    break;
+            case BOX_MODE_DIAG:
+                trellis.pixels.setPixelColor(key, COLOR_RED);
+                boxModeCount++;
+                break;
+
+            default:
+                trellis.pixels.setPixelColor(key, COLOR_GREEN);
+                boxModeCount++;
+                break;
             }
 
             trellis.activateKey(key, SEESAW_KEYPAD_EDGE_HIGH, false);
@@ -121,24 +128,30 @@ void Box::begin() {
 //---------------------------------------------------------------------------------
 // Box loop
 //---------------------------------------------------------------------------------
-void Box::loop() {
-    if(box.neotrellis_started) trellis.read();
-    //if(box.rfid_started)  checkNFC();
+void Box::loop()
+{
+    if (box.neotrellis_started)
+        trellis.read();
+    // if(box.rfid_started)  checkNFC();
 }
 
 //---------------------------------------------------------------------------------
 // Selecting box mode
 //---------------------------------------------------------------------------------
-void Box::selectMode() {
-    
+void Box::selectMode()
+{
+
     // Only one mode... not much of a choice...
-    if(boxModeCount == 1) {
+    if (boxModeCount == 1)
+    {
         boxMode = 0;
     }
-    // If more than one mode, wait until key box 
+    // If more than one mode, wait until key box
     // mode is set (by pressing an allowed key)
-    else {
-        while(boxMode == BOX_MODE_UNDEF) {
+    else
+    {
+        while (boxMode == BOX_MODE_UNDEF)
+        {
             trellis.read();
         }
     }
@@ -147,16 +160,19 @@ void Box::selectMode() {
 //---------------------------------------------------------------------------------
 // Setting MAX9744 amp volume
 //---------------------------------------------------------------------------------
-bool Box::max9744SetVolume(uint8_t v) {
-    DEBUG_PRINTF("Setting volume to %d",v);
+bool Box::max9744SetVolume(uint8_t v)
+{
+    DEBUG_PRINTF("Setting volume to %d", v);
     Wire.beginTransmission(Max9744i2cAddr);
     Wire.write(v);
     uint8_t rc = Wire.endTransmission();
-    if ( rc == 0) {
+    if (rc == 0)
+    {
         max9744_volume = v;
         return true;
     }
-    else {
+    else
+    {
         DEBUG_PRINTF("Could not set volume, rc was : %d", rc)
         return false;
     }
@@ -165,54 +181,65 @@ bool Box::max9744SetVolume(uint8_t v) {
 //---------------------------------------------------------------------------------
 // Increase MAX9744 amp volume
 //---------------------------------------------------------------------------------
-bool Box::max9744IncreaseVolume() {
-    DEBUG_PRINTF("Increasing volume to %d",max9744_volume+1);
-    if(max9744_volume >= 63) return max9744SetVolume(63);
-    else             return max9744SetVolume(max9744_volume+1);
+bool Box::max9744IncreaseVolume()
+{
+    DEBUG_PRINTF("Increasing volume to %d", max9744_volume + 1);
+    if (max9744_volume >= 63)
+        return max9744SetVolume(63);
+    else
+        return max9744SetVolume(max9744_volume + 1);
 }
 
 //---------------------------------------------------------------------------------
 // Decrease MAX9744 amp volume
 //---------------------------------------------------------------------------------
-bool Box::max9744DecreaseVolume() {
-    DEBUG_PRINTF("Setting volume to %d",max9744_volume-1);
-    if(max9744_volume <=0) return max9744SetVolume(0);
-    else           return max9744SetVolume(max9744_volume-1);
+bool Box::max9744DecreaseVolume()
+{
+    DEBUG_PRINTF("Setting volume to %d", max9744_volume - 1);
+    if (max9744_volume <= 0)
+        return max9744SetVolume(0);
+    else
+        return max9744SetVolume(max9744_volume - 1);
 }
 
 //---------------------------------------------------------------------------------
 // Setting VS1053 amp volume
 // WARNING : Higher value means lower volume
 //---------------------------------------------------------------------------------
-void Box::vs1053SetVolume(uint8_t v) {
+void Box::vs1053SetVolume(uint8_t v)
+{
     DEBUG_PRINTF("StartFunction, volume:%d", v);
-    if(v < VS1053_MAX_VOLUME) v = VS1053_MAX_VOLUME; 
-    if(v > VS1053_MIN_VOLUME) v = VS1053_MIN_VOLUME;
-    vs1053FilePlayer.setVolume(v, v);     // Left and right channel volume (lower number mean louder)
+    if (v < VS1053_MAX_VOLUME)
+        v = VS1053_MAX_VOLUME;
+    if (v > VS1053_MIN_VOLUME)
+        v = VS1053_MIN_VOLUME;
+    vs1053FilePlayer.setVolume(v, v); // Left and right channel volume (lower number mean louder)
     vs1053_volume = v;
     DEBUG_PRINTF("Volume set to %d", vs1053_volume);
 }
 
 //---------------------------------------------------------------------------------
-// Array to hex string helper 
+// Array to hex string helper
 //---------------------------------------------------------------------------------
-void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
+void intArrayToHexString(uint8_t *array, uint8_t length, char *hexString)
+{
     int i;
-    for (i = 0; i < length; i++) {
-        sprintf(hexString + 2*i, "%02X", array[i]); // Append 2 hexadecimal characters for each integer
+    for (i = 0; i < length; i++)
+    {
+        sprintf(hexString + 2 * i, "%02X", array[i]); // Append 2 hexadecimal characters for each integer
     }
-    hexString[2*length] = '\0'; // Terminate the string with null character
+    hexString[2 * length] = '\0'; // Terminate the string with null character
 }
 
 // boolean Box::nfcReadId() {
-    
+
 //     boolean success;
 //     uint8_t uidLength;
 
 //     //DEBUG_PRINT("Reading tag...");
-    
+
 //     if(millis() - nfcLastRead < RFID_READ_INTERVAL)  {
-//         DEBUG_PRINT("Last RFDI read was to close, ignoring")    
+//         DEBUG_PRINT("Last RFDI read was to close, ignoring")
 //         return false;
 //     }
 
@@ -230,7 +257,6 @@ void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
 //         nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
 //     }
 
-    
 //     return success;
 // }
 
@@ -241,9 +267,9 @@ void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
 //             readerDisabled = false;
 //             irqPrev = irqCurr = HIGH;
 //             DEBUG_PRINT("Waiting for an ISO14443A Card ...");
-//             nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);            
+//             nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
 //         }
-//     } 
+//     }
 //     else {
 //             irqCurr = digitalRead(PN532_IRQ);
 
@@ -254,7 +280,7 @@ void intArrayToHexString(uint8_t * array, uint8_t length, char* hexString) {
 //         }
 
 //         irqPrev = irqCurr;
-//     }    
+//     }
 // }
 
 // void Box::readNFC() {
