@@ -39,146 +39,169 @@
 #include "box.h"
 
 #ifdef DEBUG
-#define MAX_LIBRARY_COUNT      9
-#define MAX_ALBUM_COUNT        9
-#define MAX_TRACK_COUNT        9
+#define MAX_LIBRARY_COUNT 9
+#define MAX_ALBUM_COUNT 9
+#define MAX_TRACK_COUNT 9
 #else
-#define MAX_LIBRARY_COUNT      10
-#define MAX_ALBUM_COUNT        10
-#define MAX_TRACK_COUNT        10
+#define MAX_LIBRARY_COUNT 10
+#define MAX_ALBUM_COUNT 10
+#define MAX_TRACK_COUNT 10
 #endif
 
-#define MAX_NAV_KEY  9
+#define MAX_NAV_KEY 9
 
 #define MAX_PATH_LENGTH 64
 
 // Main Buttons
-#define BTN_ID_PREVIOUS   0
+#define BTN_ID_PREVIOUS 0
 #define BTN_ID_PLAY_PAUSE 1
-#define BTN_ID_NEXT       2
-#define BTN_ID_RANDOM     3
-#define BTN_ID_NEXT_PAGE  3
-#define BTN_ID_VOL_DOWN   12
-#define BTN_ID_VOL_UP     15
-#define BTN_ID_DUMP       14
+#define BTN_ID_NEXT 2
+#define BTN_ID_RANDOM 3
+#define BTN_ID_NEXT_PAGE 3
+#define BTN_ID_VOL_DOWN 12
+#define BTN_ID_VOL_UP 15
+#define BTN_ID_DUMP 14
 
 #define BTN_STATE_UNKNWOW 255
 
-#define SCOPE_ALL      0
-#define SCOPE_LIBRARY  1
-#define SCOPE_ALBUM    2
-#define SCOPE_NONE     255
+#define SCOPE_ALL 0
+#define SCOPE_LIBRARY 1
+#define SCOPE_ALBUM 2
+#define SCOPE_NONE 255
 
-#define currentLevel()  (currentLibraryId / NO_KEY)+(currentAlbumId / NO_KEY)+(currentTrackId / NO_KEY)
+#define currentLevel() (currentLibraryId / NO_KEY) + (currentAlbumId / NO_KEY) + (currentTrackId / NO_KEY)
 
-#define LEVEL_ROOT    3
+#define LEVEL_ROOT 3
 #define LEVEL_LIBRARY 2
-#define LEVEL_ALBUM   1
-#define LEVEL_TRACK   0
+#define LEVEL_ALBUM 1
+#define LEVEL_TRACK 0
 
-#define LONG_KEY_PRESS_DELAY 500UL  // ms
-#define BLINK_PAUSE_PERIOD 200UL // ms
+#define LONG_KEY_PRESS_DELAY 500UL // ms
+#define BLINK_PAUSE_PERIOD 200UL   // ms
 
-#define PLAY_STATUS_STOPPED    0
-#define PLAY_STATUS_PLAYING    1
-#define PLAY_STATUS_PAUSED     2
+#define PLAY_STATUS_STOPPED 0
+#define PLAY_STATUS_PLAYING 1
+#define PLAY_STATUS_PAUSED 2
 
 #define setTrackLedToPause() trellis.pixels.setBlink(track2button(getCurrentTrack()), COLOR_GREEN, BLINK_PAUSE_PERIOD, true);
 #define setTrackLedToFinished() trellis.pixels.setBlink(track2button(getCurrentTrack()), COLOR_PURPLE, BLINK_PAUSE_PERIOD, true);
 #define setTrackLedToPlay() trellis.pixels.setColor(track2button(getCurrentTrack()), COLOR_GREEN);
 #define setTrackLedToStop() trellis.pixels.setColor(track2button(getCurrentTrack()), COLOR_PURPLE);
 
+class MusicPlayer
+{
+public:
+    bool autoPlay = false;
+    uint8_t playStatus = PLAY_STATUS_STOPPED;
 
-class MusicPlayer {
-    public:
-        bool autoPlay = false;
-        uint8_t playStatus = PLAY_STATUS_STOPPED;
+    void begin();
 
-        void begin();
+    void enableAutoPlay(bool enable);
 
-        void enableAutoPlay(bool enable);
+    void setLibraryId(uint8_t id)
+    {
+        currentLibraryId = id;
+        saveParam("library", id);
+    }
+    void setAlbumId(uint8_t id)
+    {
+        currentAlbumId = id;
+        saveParam("album", id);
+    }
+    void setTrackId(uint8_t id)
+    {
+        currentTrackId = id;
+        playStatus = PLAY_STATUS_STOPPED;
+        saveParam("track", id);
+    }
 
-        void setLibraryId(uint8_t id)  { currentLibraryId = id; saveParam("library", id); }
-        void setAlbumId(uint8_t id)  { currentAlbumId = id; saveParam("album", id); }
-        void setTrackId(uint8_t id)  { currentTrackId = id; playStatus = PLAY_STATUS_STOPPED; saveParam("track", id); }
+    void unsetLibraryId()
+    {
+        currentLibraryId = NO_KEY;
+        saveParam("library", NO_KEY);
+    }
+    void unsetAlbumId()
+    {
+        currentAlbumId = NO_KEY;
+        saveParam("album", NO_KEY);
+    }
+    void unsetTrackId()
+    {
+        currentTrackId = NO_KEY;
+        saveParam("track", NO_KEY);
+    }
 
-        void unsetLibraryId() { currentLibraryId = NO_KEY; saveParam("library", NO_KEY); }
-        void unsetAlbumId() { currentAlbumId = NO_KEY; saveParam("album", NO_KEY); }
-        void unsetTrackId() { currentTrackId = NO_KEY; saveParam("track", NO_KEY); }
+    bool isLibrarySet() { return currentLibraryId != NO_KEY; }
+    bool isAlbumSet() { return currentAlbumId != NO_KEY; }
+    bool isTrackSet() { return currentTrackId != NO_KEY; }
 
-        bool isLibrarySet() { return currentLibraryId != NO_KEY; }
-        bool isAlbumSet()   { return currentAlbumId != NO_KEY; }
-        bool isTrackSet()   { return currentTrackId != NO_KEY; }
+    // bool hasTrackBeenStarted() { return playStatus == PLA; }
+    bool isTrackPlaying() { return playStatus == PLAY_STATUS_PLAYING; }
+    bool isTrackPaused() { return playStatus == PLAY_STATUS_PAUSED; }
+    bool isTrackStopped() { return playStatus == PLAY_STATUS_STOPPED; }
 
-        //bool hasTrackBeenStarted() { return playStatus == PLA; }
-        bool isTrackPlaying() { return playStatus == PLAY_STATUS_PLAYING; }
-        bool isTrackPaused() { return playStatus == PLAY_STATUS_PAUSED; }
-        bool isTrackStopped() { return playStatus == PLAY_STATUS_STOPPED; }
+    uint8_t getStatus() { return playStatus; };
 
-        uint8_t getStatus() { return playStatus; };
+    uint8_t getCurrentTrack() { return currentTrackId; }
+    uint8_t getCurrentAlbum() { return currentAlbumId; }
+    uint8_t getLibraryAlbum() { return currentLibraryId; }
 
-        uint8_t getCurrentTrack() { return currentTrackId; }
-        uint8_t getCurrentAlbum() { return currentAlbumId; }
-        uint8_t getLibraryAlbum() { return currentLibraryId; }
+    void loop();
 
-        void loop();
+    void selectObject(uint8_t id);
 
-        void selectObject(uint8_t id);
+    bool setNextTrack(bool anyScope = false);
 
-        bool setNextTrack();
+    void navBack();
+    void clearNav();
 
-        void navBack();
-        void clearNav();
+    void loadLibraries();
+    void displayLibraries();
 
-        void loadLibraries();
-        void displayLibraries();
+    void loadAlbums();
+    void displayAlbums();
 
-        void loadAlbums();
-        void displayAlbums();
+    void loadTracks();
+    void displayTracks();
 
-        void loadTracks();
-        void displayTracks();
+    void playTrack();
+    void playNextTrack();
+    void pauseTrack();
+    void playPause();
+    void stopTrack();
 
-        void playTrack();
-        void playNextTrack();
-        void pauseTrack();
-        void playPause();
-        void stopTrack();
-        
-        void dumpObject(bool dumpArray = false);
+    void dumpObject(bool dumpArray = false);
 
-        void saveParam(const char *paramName, uint8_t paramValue);
-        uint8_t getParam(const char *paramName);
-        void restoreState();
+    void saveParam(const char *paramName, uint8_t paramValue);
+    uint8_t getParam(const char *paramName);
+    void restoreState();
 
-        uint8_t getLibraryList(uint8_t maxEntries);
-        uint8_t getAlbumList(uint8_t libraryId, uint8_t maxEntries);
-        uint8_t getTrackList(uint8_t libraryId, uint8_t albumId, uint8_t maxEntries);
+    uint8_t getLibraryList(uint8_t maxEntries);
+    uint8_t getAlbumList(uint8_t libraryId, uint8_t maxEntries);
+    uint8_t getTrackList(uint8_t libraryId, uint8_t albumId, uint8_t maxEntries);
 
-    private:
-        uint8_t currentLibraryId = NO_KEY;
-        uint8_t currentAlbumId = NO_KEY;
-        uint8_t currentTrackId = NO_KEY;
+private:
+    uint8_t currentLibraryId = NO_KEY;
+    uint8_t currentAlbumId = NO_KEY;
+    uint8_t currentTrackId = NO_KEY;
 
+    char musicPath[MAX_PATH_LENGTH] = "/music";
+    char statePath[MAX_PATH_LENGTH] = "/state/";
 
-        char musicPath[MAX_PATH_LENGTH] = "/music";
-        char statePath[MAX_PATH_LENGTH] = "/state/";
+    // Only paths of albums from current library and tracks from current album
+    // are stored at any given time. Not enough memory on arduino to store
+    // whole tracks of whole albums of whole library
+    char libraries[MAX_LIBRARY_COUNT][MAX_PATH_LENGTH];
+    char albums[MAX_ALBUM_COUNT][MAX_PATH_LENGTH];
+    char tracks[MAX_TRACK_COUNT][MAX_PATH_LENGTH];
 
-        // Only paths of albums from current library and tracks from current album
-        // are stored at any given time. Not enough memory on arduino to store
-        // whole tracks of whole albums of whole library
-        char libraries[MAX_LIBRARY_COUNT][MAX_PATH_LENGTH];
-        char albums[MAX_ALBUM_COUNT][MAX_PATH_LENGTH];
-        char tracks[MAX_TRACK_COUNT][MAX_PATH_LENGTH];
+    uint8_t libraryCount;
+    uint8_t albumCount;
+    uint8_t trackCount;
 
-        uint8_t libraryCount;
-        uint8_t albumCount;
-        uint8_t trackCount;
+    byte playScope = SCOPE_NONE;
 
-        byte playScope = SCOPE_NONE;
-
-        uint8_t readSD(char* rootPath, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries);
-
+    uint8_t readSD(char *rootPath, char entries[][MAX_PATH_LENGTH], bool isDirectory, byte maxEntries);
 };
 
 #endif

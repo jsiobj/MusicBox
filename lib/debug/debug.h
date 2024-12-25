@@ -30,52 +30,57 @@
 */
 
 #ifndef DEBUGUTILS_H
-    #define DEBUGUTILS_H
+#define DEBUGUTILS_H
 
-    #include <Arduino.h>
+#include <Arduino.h>
 
-    //#define DEBUG
-    #ifdef DEBUG
-        #define DEBUG_TIMER_START Serial.print("START"); uint32_t _ts_start = millis();
-        #define DEBUG_TIMER_STOP sprintf("END Took %ums", (millis() - _ts_start));
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_TIMER_START  \
+    Serial.print("START"); \
+    uint32_t _ts_start = millis();
+#define DEBUG_TIMER_STOP sprintf("END Took %ums", (millis() - _ts_start));
 
-        #define DEBUG_PRINTF(...)              \
-        { \
-            char DEBUG_MSG_BUFFER[512]; \
-            sprintf(DEBUG_MSG_BUFFER,__VA_ARGS__); \
-            Serial.print(millis());            \
-            Serial.print("|");                 \
-            Serial.print(__PRETTY_FUNCTION__); \
-            Serial.print("|");                 \
-            Serial.print(DEBUG_MSG_BUFFER);        \
-            Serial.println(); \
-            Serial.flush(); \
-        }
+#define DEBUG_PRINTF(...)                       \
+    {                                           \
+        char DEBUG_MSG_BUFFER[512];             \
+        sprintf(DEBUG_MSG_BUFFER, __VA_ARGS__); \
+        Serial.print(millis());                 \
+        Serial.print("|");                      \
+        Serial.print(__PRETTY_FUNCTION__);      \
+        Serial.print("|");                      \
+        Serial.print(DEBUG_MSG_BUFFER);         \
+        Serial.println();                       \
+        Serial.flush();                         \
+    }
 
-        #define DEBUG_PRINT(str)               \
-            Serial.print(millis());            \
-            Serial.print("|");                 \
-            Serial.print(__PRETTY_FUNCTION__); \
-            Serial.print('|');                 \
-            Serial.print(F(str));                 \
-            Serial.println();  \
-            Serial.flush();
+#define DEBUG_PRINT(str)               \
+    Serial.print(millis());            \
+    Serial.print("|");                 \
+    Serial.print(__PRETTY_FUNCTION__); \
+    Serial.print('|');                 \
+    Serial.print(F(str));              \
+    Serial.println();                  \
+    Serial.flush();
 
-        #define DEBUG_PRINT_ARRAY(array,arrayName,size)       \
-            Serial.print(F("Array:"));                           \
-            Serial.print(F(arrayName));                          \
-            Serial.print(F("|size:"));                           \
-            Serial.print(size);                               \
-            Serial.println();                                 \
-            for(byte z=0;z<size;z++)  {                       \
-                Serial.print("    "); Serial.print(z);          \
-                Serial.print(":"); Serial.println(array[z]);    \
-            }
-    #else
-        #define DEBUG_PRINT(str)
-        #define DEBUG_PRINTF(...)
-        #define DEBUG_PRINT_ARRAY(array,arrayName,arraySize)
-        #define DEBUG_TIMER_START
-        #define DEBUG_TIMER_STOP
-    #endif
+#define DEBUG_PRINT_ARRAY(array, arrayName, size) \
+    Serial.print(F("Array:"));                    \
+    Serial.print(F(arrayName));                   \
+    Serial.print(F("|size:"));                    \
+    Serial.print(size);                           \
+    Serial.println();                             \
+    for (byte z = 0; z < size; z++)               \
+    {                                             \
+        Serial.print("    ");                     \
+        Serial.print(z);                          \
+        Serial.print(":");                        \
+        Serial.println(array[z]);                 \
+    }
+#else
+#define DEBUG_PRINT(str)
+#define DEBUG_PRINTF(...)
+#define DEBUG_PRINT_ARRAY(array, arrayName, arraySize)
+#define DEBUG_TIMER_START
+#define DEBUG_TIMER_STOP
+#endif
 #endif

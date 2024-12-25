@@ -26,11 +26,10 @@
     SOFTWARE.
     ---------------------------------------------------------------------------
 */
-#define PREFER_SDFAT_LIBRARY 1
+#define PREFER_SDFAT_LIBRARY
 #include "debug.h"
-
-#include <Adafruit_NeoTrellis.h>
 #include <Adafruit_VS1053.h>
+#include <Adafruit_NeoTrellis.h>
 
 #include "box.h"
 #include "player.h"
@@ -68,6 +67,24 @@ uint8_t track2button(uint8_t track)
 uint32_t COLOR_CYCLE_ORANGE_RED[] = {COLOR_ORANGE, COLOR_RED};
 uint32_t COLOR_CYCLE_BLACK_PURPLE[] = {COLOR_BLACK, COLOR_RED};
 uint32_t COLOR_CYCLE_BLACK_RED[] = {COLOR_BLACK, COLOR_RED};
+
+// Fonction de tri à bulles pour trier les entrées par ordre alphabétique
+void bubbleSort(char arr[][MAX_PATH_LENGTH], int n)
+{
+    for (int i = 0; i < n - 1; i++)
+    {
+        for (int j = 0; j < n - i - 1; j++)
+        {
+            if (strcmp(arr[j], arr[j + 1]) > 0)
+            {
+                char temp[MAX_PATH_LENGTH];
+                strncpy(temp, arr[j], MAX_PATH_LENGTH);
+                strncpy(arr[j], arr[j + 1], MAX_PATH_LENGTH);
+                strncpy(arr[j + 1], temp, MAX_PATH_LENGTH);
+            }
+        }
+    }
+}
 
 //=========================================================================
 //=== CALLBACKS
@@ -251,11 +268,11 @@ void MusicPlayer::loop()
         if (vs1053FilePlayer.playingMusic)
         {
             vs1053FilePlayer.feedBuffer();
-            Serial.print(".");
+            // Serial.print(".");
         }
         else
         { // Not playing, either never started, paused, or finished
-            Serial.print("x");
+            // Serial.print("x");
             if (getStatus() == PLAY_STATUS_PLAYING)
             { // If previously playing, end of track reached
                 playStatus = PLAY_STATUS_STOPPED;
@@ -624,7 +641,7 @@ void MusicPlayer::playNextTrack()
 //-------------------------------------------------------------------------
 // Setting next track
 //-------------------------------------------------------------------------
-bool MusicPlayer::setNextTrack()
+bool MusicPlayer::setNextTrack(bool anyScope)
 {
 
     DEBUG_PRINTF("StartFunction,scope %d", playScope);
@@ -740,6 +757,8 @@ byte MusicPlayer::readSD(char *path, char entries[][MAX_PATH_LENGTH], bool isDir
         entries[i][0] = 0;
     }
 
+    char tempEntries[maxEntries][MAX_PATH_LENGTH];
+
     while (true)
     {
 
@@ -761,19 +780,36 @@ byte MusicPlayer::readSD(char *path, char entries[][MAX_PATH_LENGTH], bool isDir
         char fileNameBuffer[MAX_PATH_LENGTH];
         dirEntry.getName(fileNameBuffer, MAX_PATH_LENGTH);
 
-        if (dirEntry.isDir() != isDirectory)
+        // Filter hidden files starting with a dot
+        if (fileNameBuffer[0] == '.')
         {
-            DEBUG_PRINTF("Entry %s is not of expected type %d, ignoring", fileNameBuffer, isDirectory);
+            DEBUG_PRINTF("Ignoring hidden file: %s", fileNameBuffer);
+            dirEntry.close();
             continue;
         }
 
-        strcpy(entries[count], path);
-        strcat(entries[count], "/");
-        strcat(entries[count], fileNameBuffer);
-        DEBUG_PRINTF("Adding entry %d %s", count, entries[count]);
+        if (dirEntry.isDir() != isDirectory)
+        {
+            DEBUG_PRINTF("Entry %s is not of expected type %d, ignoring", fileNameBuffer, isDirectory);
+            dirEntry.close();
+            continue;
+        }
 
+        strncpy(tempEntries[count], fileNameBuffer, MAX_PATH_LENGTH);
         count++;
         dirEntry.close();
+    }
+
+    // Trier les entrées par ordre alphabétique
+    bubbleSort(tempEntries, count);
+
+    // Copier les entrées triées dans le tableau final
+    for (byte i = 0; i < count; i++)
+    {
+        strcpy(entries[i], path);
+        strcat(entries[i], "/");
+        strcat(entries[i], tempEntries[i]);
+        DEBUG_PRINTF("Adding entry %d %s", count, entries[count]);
     }
 
     dir.close();
