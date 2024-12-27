@@ -318,7 +318,7 @@ void MusicPlayer::loadLibraries()
 
     DEBUG_PRINT("StartFunction");
     libraryCount = getLibraryList(MAX_LIBRARY_COUNT);
-    playScope = SCOPE_ALL;
+    // playScope = SCOPE_ALL;
     DEBUG_PRINT("ExitFunction");
 }
 
@@ -351,7 +351,7 @@ void MusicPlayer::loadAlbums()
 {
     DEBUG_PRINT("StartFunction");
     albumCount = getAlbumList(currentLibraryId, MAX_ALBUM_COUNT);
-    playScope = SCOPE_LIBRARY;
+    // playScope = SCOPE_LIBRARY;
     DEBUG_PRINT("ExitFunction");
 }
 
@@ -385,7 +385,7 @@ void MusicPlayer::loadTracks()
 
     DEBUG_PRINT("StartFunction");
     trackCount = getTrackList(currentLibraryId, currentAlbumId, MAX_TRACK_COUNT);
-    playScope = SCOPE_ALBUM;
+    // playScope = SCOPE_ALBUM;
     DEBUG_PRINT("ExitFunction");
 }
 
@@ -492,11 +492,10 @@ void MusicPlayer::playPause()
 {
     DEBUG_PRINT("StartFunction");
 
-    // if(playScope == SCOPE_NONE) {
-    //     if( isAlbumSet() )                 playScope = SCOPE_ALBUM;
-    //     else if( isLibrarySet() )          playScope = SCOPE_LIBRARY;
-    //     else                               playScope = SCOPE_ALL;
-    // }
+    if (playScope == SCOPE_NONE)
+    {
+        playScope = currentLevel();
+    }
 
     // A track is already selected, just play (or pause) it
     if (isTrackSet())
@@ -613,7 +612,7 @@ void MusicPlayer::navBack()
         unsetTrackId();
         unsetAlbumId();
         displayAlbums();
-        playScope = SCOPE_LIBRARY;
+        playScope = SCOPE_NONE;
         DEBUG_PRINT("ExitFunction, unset track id and album id");
     }
 
@@ -622,7 +621,7 @@ void MusicPlayer::navBack()
         unsetAlbumId();
         unsetLibraryId();
         displayLibraries();
-        playScope = SCOPE_ALL;
+        playScope = SCOPE_NONE;
         DEBUG_PRINT("ExitFunction,unset album id and library id");
     }
 }
@@ -869,6 +868,7 @@ void MusicPlayer::dumpObject(bool dumpArrays)
     DEBUG_PRINTF("autoPlay              %d", autoPlay);
     DEBUG_PRINTF("currentLevel()        %d", currentLevel());
     DEBUG_PRINTF("getStatus()           %d", getStatus());
+    DEBUG_PRINTF("Scope                 %d", playScope);
     DEBUG_PRINT("=======================================");
     // DEBUG_PRINT("State files");
     // DEBUG_PRINTF("library               %d", getParam("LIBRARY"));
