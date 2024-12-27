@@ -55,7 +55,8 @@
 // Main Buttons
 #define BTN_ID_PREVIOUS 0
 #define BTN_ID_PLAY_PAUSE 1
-#define BTN_ID_NEXT 2
+#define BTN_ID_PREVIOUS 2
+#define BTN_ID_NEXT 3
 #define BTN_ID_RANDOM 3
 #define BTN_ID_NEXT_PAGE 3
 #define BTN_ID_VOL_DOWN 12

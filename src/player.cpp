@@ -208,6 +208,7 @@ void MusicPlayer::begin()
     trellis.registerCallback(BTN_ID_VOL_DOWN, decreaseVol);
 
     trellis.pixels.setPixelColor(BTN_ID_BACK, COLOR_ORANGE);
+    trellis.pixels.setPixelColor(BTN_ID_PREVIOUS, COLOR_BLACK);
     trellis.pixels.setPixelColor(BTN_ID_NEXT, COLOR_BLUE);
     // trellis.pixels.setPixelColor(BTN_ID_NEXT_PAGE,COLOR_PURPLE);
     trellis.pixels.setPixelColor(BTN_ID_VOL_UP, COLOR_BLUE);
